@@ -1,0 +1,18 @@
+{
+    "expo": {
+        "name": "OCR Flashcard App",
+        "slug": "ocr-flashcard-app",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "userInterfaceStyle": "light",
+        "newArchEnabled": true,
+        "platforms": [
+            "ios",
+            "android",
+            "web"
+        ],
+        "updates": {
+            "enabled": false
+        }
+    }
+}

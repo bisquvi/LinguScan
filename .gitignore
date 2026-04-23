@@ -1,0 +1,46 @@
+# --- Genel ve Sistem Dosyaları ---
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.DS_Store
+Thumbs.db
+*.log
+
+# --- IDE ve Editörler ---
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# --- Backend (Python/FastAPI) ---
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+*.egg-info/
+*.egg
+.pytest_cache/
+backend/venv/
+backend/.venv/
+backend/env/
+
+# --- Frontend (React Native/Expo) ---
+frontend/node_modules/
+frontend/.expo/
+frontend/web-build/
+frontend/artifacts/
+frontend/dist/
+
+# --- Docker ---
+docker-compose.override.yml
+
+# --- Veritabanı ---
+*.db
+*.sqlite3
+
+# --- Gereksiz Dosyalar ---
+ocr_kodlari.txt
