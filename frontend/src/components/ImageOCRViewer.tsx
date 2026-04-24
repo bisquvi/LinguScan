@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { View, Image, TouchableOpacity, StyleSheet, LayoutChangeEvent, Platform } from 'react-native';
+import React from 'react';
+import { View, Image, TouchableOpacity, Text, StyleSheet, LayoutChangeEvent, Platform } from 'react-native';
+import { useState, useEffect } from 'react';
 
 export interface OCRBox {
     x: number;
@@ -19,15 +20,22 @@ export interface OCRResult {
     words: WordResult[];
 }
 
+export type ViewMode = 'words' | 'sentences' | 'fulltext';
+
 interface Props {
     imageUri: string;
     ocrData: OCRResult[];
     onTextPress?: (text: string) => void;
     onWordPress?: (text: string) => void;
     onSentencePress?: (text: string) => void;
+    viewMode: ViewMode;
+    onViewModeChange: (mode: ViewMode) => void;
 }
 
-export default function ImageOCRViewer({ imageUri, ocrData, onTextPress, onWordPress, onSentencePress }: Props) {
+export default function ImageOCRViewer({
+    imageUri, ocrData, onTextPress, onWordPress, onSentencePress,
+    viewMode, onViewModeChange,
+}: Props) {
     const [originalSize, setOriginalSize] = useState({ width: 0, height: 0 });
     const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
 
@@ -35,7 +43,10 @@ export default function ImageOCRViewer({ imageUri, ocrData, onTextPress, onWordP
         if (!imageUri) return;
 
         if (Platform.OS === 'web' && imageUri.startsWith('blob:')) {
-            // For web blob URLs, use an HTMLImageElement to get natural dimensions
+            const img = new (window as any).Image();
+            img.onload = () => setOriginalSize({ width: img.naturalWidth, height: img.naturalHeight });
+            img.src = imageUri;
+        } else if (Platform.OS === 'web' && imageUri.startsWith('data:')) {
             const img = new (window as any).Image();
             img.onload = () => setOriginalSize({ width: img.naturalWidth, height: img.naturalHeight });
             img.src = imageUri;
@@ -76,57 +87,236 @@ export default function ImageOCRViewer({ imageUri, ocrData, onTextPress, onWordP
         }
     }
 
-    const toStyle = (box: OCRBox, zIndex: number, isSentence: boolean) => ({
+    const toStyle = (box: OCRBox, zIndex: number, type: 'word' | 'sentence' | 'fulltext') => ({
         position: 'absolute' as const,
         left: box.x * scaleX + offsetX,
         top: box.y * scaleY + offsetY,
         width: box.width * scaleX,
         height: box.height * scaleY,
-        backgroundColor: isSentence
-            ? 'rgba(255, 140, 0, 0.10)'   // Outer: orange tint
-            : 'rgba(0, 150, 255, 0.20)',   // Inner: blue tint
-        borderColor: isSentence
-            ? 'rgba(255, 140, 0, 0.85)'   // Outer: orange border
-            : 'rgba(0, 150, 255, 0.85)',   // Inner: blue border
-        borderWidth: isSentence ? 1.5 : 1,
+        backgroundColor:
+            type === 'sentence'
+                ? 'rgba(255, 140, 0, 0.10)'
+                : type === 'fulltext'
+                    ? 'rgba(29, 185, 84, 0.10)'
+                    : 'rgba(0, 150, 255, 0.20)',
+        borderColor:
+            type === 'sentence'
+                ? 'rgba(255, 140, 0, 0.85)'
+                : type === 'fulltext'
+                    ? 'rgba(29, 185, 84, 0.85)'
+                    : 'rgba(0, 150, 255, 0.85)',
+        borderWidth: type === 'word' ? 1 : 1.5,
         borderRadius: 4,
         zIndex,
     });
 
+    // Group words into lines by Y proximity, return per-line bounding boxes
+    const getSentenceLineBoxes = (item: OCRResult): OCRBox[] => {
+        if (item.words.length === 0) return [item.box];
+
+        const sorted = [...item.words].sort((a, b) => a.box.y - b.box.y);
+        const lines: WordResult[][] = [];
+
+        for (const word of sorted) {
+            const lastLine = lines[lines.length - 1];
+            if (lastLine) {
+                const avgH = lastLine.reduce((s, w) => s + w.box.height, 0) / lastLine.length;
+                if (Math.abs(word.box.y - lastLine[0].box.y) < avgH * 0.6) {
+                    lastLine.push(word);
+                    continue;
+                }
+            }
+            lines.push([word]);
+        }
+
+        const pad = 3;
+        return lines.map(lw => {
+            const minX = Math.min(...lw.map(w => w.box.x)) - pad;
+            const minY = Math.min(...lw.map(w => w.box.y)) - pad;
+            const maxX = Math.max(...lw.map(w => w.box.x + w.box.width)) + pad;
+            const maxB = Math.max(...lw.map(w => w.box.y + w.box.height)) + pad;
+            return { x: Math.max(0, minX), y: Math.max(0, minY), width: maxX - minX, height: maxB - minY };
+        });
+    };
+
+    // Compute merged bounding box for fulltext mode
+    const getFullTextBox = (): OCRBox | null => {
+        if (ocrData.length === 0) return null;
+        let minX = Infinity, minY = Infinity, maxR = -Infinity, maxB = -Infinity;
+        for (const item of ocrData) {
+            minX = Math.min(minX, item.box.x);
+            minY = Math.min(minY, item.box.y);
+            maxR = Math.max(maxR, item.box.x + item.box.width);
+            maxB = Math.max(maxB, item.box.y + item.box.height);
+        }
+        const padding = 8;
+        return {
+            x: Math.max(0, minX - padding),
+            y: Math.max(0, minY - padding),
+            width: (maxR - minX) + padding * 2,
+            height: (maxB - minY) + padding * 2,
+        };
+    };
+
+    const fullText = ocrData.map(item => item.text).join(' ');
+
     return (
-        <View style={styles.webContainer}>
-            <View style={styles.container} onLayout={onLayout}>
-                <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" />
+        <View style={styles.outerWrapper}>
+            {/* ── Left Filter Buttons ──────────────────── */}
+            <View style={styles.filterPanel}>
+                <TouchableOpacity
+                    style={[
+                        styles.filterBtn,
+                        viewMode === 'words' && styles.filterBtnActiveWords,
+                    ]}
+                    onPress={() => onViewModeChange('words')}
+                    activeOpacity={0.7}
+                >
+                    <Text style={styles.filterIcon}>🔤</Text>
+                    <Text style={[
+                        styles.filterLabel,
+                        viewMode === 'words' && styles.filterLabelActive,
+                    ]}>Kelimeler</Text>
+                </TouchableOpacity>
 
-                {originalSize.width > 0 && ocrData.map((item, si) => (
-                    <React.Fragment key={`sentence-${si}`}>
-                        {/* Outer sentence box — lower zIndex so word boxes sit on top */}
-                        <TouchableOpacity
-                            style={toStyle(item.box, 10, true)}
-                            onPress={() => onSentencePress ? onSentencePress(item.text) : (onTextPress && onTextPress(item.text))}
-                            activeOpacity={0.4}
-                        />
+                <TouchableOpacity
+                    style={[
+                        styles.filterBtn,
+                        viewMode === 'sentences' && styles.filterBtnActiveSentences,
+                    ]}
+                    onPress={() => onViewModeChange('sentences')}
+                    activeOpacity={0.7}
+                >
+                    <Text style={styles.filterIcon}>📝</Text>
+                    <Text style={[
+                        styles.filterLabel,
+                        viewMode === 'sentences' && styles.filterLabelActive,
+                    ]}>Cümleler</Text>
+                </TouchableOpacity>
 
-                        {/* Inner word boxes */}
-                        {item.words.map((word, wi) => (
+                <TouchableOpacity
+                    style={[
+                        styles.filterBtn,
+                        viewMode === 'fulltext' && styles.filterBtnActiveFulltext,
+                    ]}
+                    onPress={() => onViewModeChange('fulltext')}
+                    activeOpacity={0.7}
+                >
+                    <Text style={styles.filterIcon}>📄</Text>
+                    <Text style={[
+                        styles.filterLabel,
+                        viewMode === 'fulltext' && styles.filterLabelActive,
+                    ]}>Bütün Metin</Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* ── Image + OCR Overlay ──────────────────── */}
+            <View style={styles.webContainer}>
+                <View style={styles.container} onLayout={onLayout}>
+                    <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" />
+
+                    {originalSize.width > 0 && viewMode === 'words' && ocrData.map((item, si) => (
+                        <React.Fragment key={`words-${si}`}>
+                            {item.words.map((word, wi) => (
+                                <TouchableOpacity
+                                    key={`word-${si}-${wi}`}
+                                    style={toStyle(word.box, 20, 'word')}
+                                    onPress={() => onWordPress ? onWordPress(word.text) : (onTextPress && onTextPress(word.text))}
+                                    activeOpacity={0.4}
+                                />
+                            ))}
+                        </React.Fragment>
+                    ))}
+
+                    {/* Sentences: per-line segment boxes instead of one big rectangle */}
+                    {originalSize.width > 0 && viewMode === 'sentences' && ocrData.map((item, si) => {
+                        const lineBoxes = getSentenceLineBoxes(item);
+                        return (
+                            <React.Fragment key={`sentence-${si}`}>
+                                {lineBoxes.map((lineBox, li) => (
+                                    <TouchableOpacity
+                                        key={`sline-${si}-${li}`}
+                                        style={toStyle(lineBox, 10, 'sentence')}
+                                        onPress={() => onSentencePress ? onSentencePress(item.text) : (onTextPress && onTextPress(item.text))}
+                                        activeOpacity={0.4}
+                                    />
+                                ))}
+                            </React.Fragment>
+                        );
+                    })}
+
+                    {originalSize.width > 0 && viewMode === 'fulltext' && (() => {
+                        const box = getFullTextBox();
+                        if (!box) return null;
+                        return (
                             <TouchableOpacity
-                                key={`word-${si}-${wi}`}
-                                style={toStyle(word.box, 20, false)}
-                                onPress={() => onWordPress ? onWordPress(word.text) : (onTextPress && onTextPress(word.text))}
+                                style={toStyle(box, 10, 'fulltext')}
+                                onPress={() => onSentencePress ? onSentencePress(fullText) : (onTextPress && onTextPress(fullText))}
                                 activeOpacity={0.4}
                             />
-                        ))}
-                    </React.Fragment>
-                ))}
+                        );
+                    })()}
+                </View>
             </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
+    outerWrapper: {
+        flex: 1,
+        flexDirection: 'row',
+        width: '100%',
+    },
+    filterPanel: {
+        width: 90,
+        backgroundColor: '#1a1a1a',
+        paddingVertical: 16,
+        paddingHorizontal: 6,
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 10,
+        borderRightWidth: 1,
+        borderRightColor: '#2a2a2a',
+    },
+    filterBtn: {
+        width: 78,
+        paddingVertical: 12,
+        paddingHorizontal: 4,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#252525',
+        borderWidth: 1.5,
+        borderColor: '#333',
+    },
+    filterBtnActiveWords: {
+        backgroundColor: 'rgba(0, 150, 255, 0.15)',
+        borderColor: 'rgba(0, 150, 255, 0.85)',
+    },
+    filterBtnActiveSentences: {
+        backgroundColor: 'rgba(255, 140, 0, 0.15)',
+        borderColor: 'rgba(255, 140, 0, 0.85)',
+    },
+    filterBtnActiveFulltext: {
+        backgroundColor: 'rgba(29, 185, 84, 0.15)',
+        borderColor: 'rgba(29, 185, 84, 0.85)',
+    },
+    filterIcon: {
+        fontSize: 22,
+        marginBottom: 4,
+    },
+    filterLabel: {
+        fontSize: 10,
+        color: '#888',
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+    filterLabelActive: {
+        color: '#fff',
+    },
     webContainer: {
         flex: 1,
-        width: '100%',
         alignItems: 'center',
         justifyContent: 'center',
     },

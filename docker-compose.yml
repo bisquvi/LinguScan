@@ -3,12 +3,11 @@ version: '3.8'
 services:
   db:
     image: postgres:15
-    container_name: ocr_db
     restart: always
     environment:
-      POSTGRES_USER: ocr_user
-      POSTGRES_PASSWORD: ocr_password
-      POSTGRES_DB: ocr_database
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
@@ -16,49 +15,54 @@ services:
 
   ollama:
     image: ollama/ollama:latest
-    container_name: ocr_ollama
     restart: always
     ports:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     # If the host has NVIDIA GPU, you can uncomment the lines below to enable GPU for Ollama
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
 
-  ollama-pull-model:
-    image: curlimages/curl:latest
-    container_name: ocr_ollama_pull
-    depends_on:
-      - ollama
-    # Ollama endpoint for pulling model programmatically
-    command: >
-      sh -c "
-      echo 'Waiting for Ollama API...';
-      sleep 10;
-      echo 'Pulling Llama 3 model...';
-      curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"llama3\"}';
-      echo 'Done!';
-      "
+  # ollama-pull-model:
+  #   image: curlimages/curl:latest
+  #   container_name: ocr_ollama_pull
+  #   depends_on:
+  #     - ollama
+  #   # Ollama endpoint for pulling model programmatically
+  #   command: >
+  #     sh -c "
+  #     echo 'Waiting for Ollama API...';
+  #     sleep 10;
+  #     echo 'Pulling Llama 3 model...';
+  #     curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"llama3\"}';
+  #     echo 'Done!';
+  #     "
 
   backend:
-    build: 
+    build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: ocr_backend
     restart: always
     volumes:
       - ./backend:/app
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://ocr_user:ocr_password@db:5432/ocr_database
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       - OLLAMA_URL=http://ollama:11434
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
       # Translation providers — uncomment and set keys to enable
       # - GOOGLE_TRANSLATE_API_KEY=your-key-here
       # - DEEPL_API_KEY=your-key-here

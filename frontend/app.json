@@ -11,9 +11,6 @@
             "android",
             "web"
         ],
-        "extra": {
-            "apiUrl": ""
-        },
         "updates": {
             "enabled": false
         }

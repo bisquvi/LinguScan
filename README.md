@@ -1,6 +1,6 @@
 # OCR & Translation Flashcard App
 
-Bu proje; yüklenen görsellerin üzerindeki İngilizce metinleri tespit eden (EasyOCR), yerel çalışan Llama3 modeliyle çevirisini yapan (Ollama) ve bu kelimeleri Spaced Repetition (Aralıklı Tekrar) yöntemiyle öğrenmenizi sağlayan (SM-2) full-stack bir uygulamadır.
+Bu proje; yüklenen görsellerin üzerindeki İngilizce metinleri tespit eden (EasyOCR), yerel çalışan Llama3 modeliyle çevirisini yapan (Ollama) ve bu kelimeleri Spaced Repetition (Aralıklı Tekrar) yöntemiyle öğrenmenizi sağlayan (SM-2) tam yığın (full-stack) bir uygulamadır.
 
 ## Klasör Yapısı
 - `backend/`: FastAPI, PostgreSQL veritabanı bağlantısı, EasyOCR ve Ollama entegrasyonlarını içeren Python kodları.
@@ -13,8 +13,8 @@ Bu proje; yüklenen görsellerin üzerindeki İngilizce metinleri tespit eden (E
 - Bilgisayarınızda **Docker** ve **Docker Compose** kurulu olmalıdır.
 - (Eğer kendi cihazınızda test edecekseniz) Frontend için bilgisayarınızda **Node.js** (v18+) kurulu olmalıdır.
 
-### Adım 1: Backend Ayağa Kaldırma
-Proje dizininde aşağıdaki komutu çalıştırarak backend, veritabanı ve Ollama'yı başlatın:
+### Adım 1: Arka Ucu (Backend) Ayağa Kaldırma
+Proje dizininde (bu dosyanın olduğu dizin) aşağıdaki komutu çalıştırarak arka uç, veritabanı ve Ollama'yı başlatın:
 
 ```cmd
 docker-compose up -d --build
@@ -29,7 +29,7 @@ docker exec -it ocr_ollama ollama run llama3
 API şu adreste çalışacaktır: `http://localhost:8000`
 Bağlantının sağlıklı olduğunu doğrulamak için `http://localhost:8000/api/decks/` adresini tarayıcınızda açıp test edebilirsiniz.
 
-### Adım 2: Frontend Başlatma
+### Adım 2: Ön Yüzü (Frontend) Başlatma
 React Native (Expo) uygulamasını başlatmak için:
 
 1. `frontend` klasörüne girin:

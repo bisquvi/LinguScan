@@ -1,14 +1,24 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
     View, Text, Button, StyleSheet, ActivityIndicator,
-    Modal, TouchableOpacity, Platform, FlatList, ScrollView
+    Modal, TouchableOpacity, Platform, FlatList, ScrollView, Image
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import ImageOCRViewer, { OCRResult } from '../components/ImageOCRViewer';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import ImageOCRViewer, { OCRResult, ViewMode } from '../components/ImageOCRViewer';
 import { apiClient } from '../api/client';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
+
+const GALLERY_KEY = 'gallery_history';
+const MAX_GALLERY = 5;
+
+interface GalleryItem {
+    base64: string;
+    ocrData: OCRResult[];
+    timestamp: number;
+}
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Upload'>;
 
@@ -50,6 +60,14 @@ export default function UploadScreen() {
     const [ocrData, setOcrData] = useState<OCRResult[]>([]);
     const [loading, setLoading] = useState(false);
 
+    // View mode state
+    const [viewMode, setViewMode] = useState<ViewMode>('words');
+
+    // Gallery state
+    const [gallery, setGallery] = useState<GalleryItem[]>([]);
+    const [galleryVisible, setGalleryVisible] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
+
     // Translation card state
     const [selectedText, setSelectedText] = useState('');
     const [translation, setTranslation] = useState({ t: '', m: '', example: '', provider: '', loading: false });
@@ -69,6 +87,52 @@ export default function UploadScreen() {
 
     const navigation = useNavigation<NavigationProp>();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+    // ── Gallery helpers ─────────────────────────────────────────────
+    useEffect(() => {
+        loadGallery();
+    }, []);
+
+    const loadGallery = async () => {
+        try {
+            const raw = await AsyncStorage.getItem(GALLERY_KEY);
+            if (raw) setGallery(JSON.parse(raw));
+        } catch { }
+    };
+
+    const blobToBase64 = (blobUrl: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            fetch(blobUrl)
+                .then(r => r.blob())
+                .then(blob => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                })
+                .catch(reject);
+        });
+    };
+
+    const saveToGallery = async (uri: string, ocr: OCRResult[]) => {
+        try {
+            let base64 = uri;
+            if (uri.startsWith('blob:')) {
+                base64 = await blobToBase64(uri);
+            }
+            const item: GalleryItem = { base64, ocrData: ocr, timestamp: Date.now() };
+            const updated = [item, ...gallery.filter(g => g.base64 !== base64)].slice(0, MAX_GALLERY);
+            setGallery(updated);
+            await AsyncStorage.setItem(GALLERY_KEY, JSON.stringify(updated));
+        } catch { }
+    };
+
+    const selectFromGallery = (item: GalleryItem) => {
+        setImageUri(item.base64);
+        setOcrData(item.ocrData);
+        setViewMode('words');
+        setGalleryVisible(false);
+    };
 
     // ── Toast helper ─────────────────────────────────────────────
     const showToast = (message: string, success: boolean) => {
@@ -91,6 +155,7 @@ export default function UploadScreen() {
     const processImageWeb = async (file: File) => {
         setLoading(true);
         setOcrData([]);
+        setViewMode('words');
         try {
             const formData = new FormData();
             formData.append('file', file, file.name);
@@ -98,6 +163,7 @@ export default function UploadScreen() {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
             setOcrData(response.data);
+            if (imageUri) saveToGallery(imageUri, response.data);
         } catch {
             showToast('Görüntü işlenemedi. Backend loglarını kontrol et.', false);
         } finally {
@@ -120,6 +186,7 @@ export default function UploadScreen() {
     const processImageMobile = async (asset: ImagePicker.ImagePickerAsset) => {
         setLoading(true);
         setOcrData([]);
+        setViewMode('words');
         try {
             const formData = new FormData();
             formData.append('file', { uri: asset.uri, name: 'upload.jpg', type: 'image/jpeg' } as any);
@@ -127,6 +194,7 @@ export default function UploadScreen() {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
             setOcrData(response.data);
+            saveToGallery(asset.uri, response.data);
         } catch {
             showToast('Görüntü işlenemedi.', false);
         } finally {
@@ -237,18 +305,38 @@ export default function UploadScreen() {
             )}
 
             <View style={styles.header}>
-                <TouchableOpacity style={styles.headerBtn} onPress={pickImage}>
-                    <Text style={styles.headerBtnText}>📷 Görsel Seç</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.headerBtn, styles.decksBtn]} onPress={() => navigation.navigate('Decks')}>
-                    <Text style={styles.headerBtnText}>📚 Destelerim</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.headerBtn, styles.sentenceDecksBtn]} onPress={() => navigation.navigate('SentenceDecks')}>
-                    <Text style={styles.headerBtnText}>📚 Cümlelerim</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.headerBtn, styles.settingsBtn]} onPress={() => navigation.navigate('Settings')}>
-                    <Text style={styles.headerBtnText}>⚙️ Ayarlar</Text>
-                </TouchableOpacity>
+                {/* Hamburger Menu - Far Left */}
+                <View style={{ zIndex: 999 }}>
+                    <TouchableOpacity style={styles.hamburgerBtn} onPress={() => setMenuOpen(!menuOpen)}>
+                        <Text style={styles.hamburgerText}>☰</Text>
+                    </TouchableOpacity>
+                    {menuOpen && (
+                        <View style={styles.dropdownMenu}>
+                            <TouchableOpacity
+                                style={styles.dropdownItem}
+                                onPress={() => { setMenuOpen(false); setGalleryVisible(true); }}
+                            >
+                                <Text style={styles.dropdownItemText}>🖼️ Galeri</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                </View>
+
+                {/* Center Buttons */}
+                <View style={styles.headerBtns}>
+                    <TouchableOpacity style={styles.headerBtn} onPress={pickImage}>
+                        <Text style={styles.headerBtnText}>📷 Görsel Seç</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.headerBtn, styles.decksBtn]} onPress={() => navigation.navigate('Decks')}>
+                        <Text style={styles.headerBtnText}>📚 Destelerim</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.headerBtn, styles.sentenceDecksBtn]} onPress={() => navigation.navigate('SentenceDecks')}>
+                        <Text style={styles.headerBtnText}>📚 Cümlelerim</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.headerBtn, styles.settingsBtn]} onPress={() => navigation.navigate('Settings')}>
+                        <Text style={styles.headerBtnText}>⚙️ Ayarlar</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {loading && <ActivityIndicator size="large" color="#1DB954" style={styles.loader} />}
@@ -259,6 +347,8 @@ export default function UploadScreen() {
                     ocrData={ocrData}
                     onWordPress={handleTextPress}
                     onSentencePress={handleSentencePress}
+                    viewMode={viewMode}
+                    onViewModeChange={setViewMode}
                 />
             )}
 
@@ -463,13 +553,72 @@ export default function UploadScreen() {
                     </View>
                 </View>
             </Modal>
+
+            {/* ── Gallery Modal ────────────────────────────── */}
+            <Modal visible={galleryVisible} transparent animationType="slide">
+                <View style={styles.galleryOverlay}>
+                    <View style={styles.galleryContent}>
+                        <Text style={styles.galleryTitle}>🖼️ Galeri</Text>
+                        <Text style={styles.gallerySubtitle}>Son yüklenen görseller</Text>
+
+                        {gallery.length === 0 ? (
+                            <View style={styles.galleryEmpty}>
+                                <Text style={styles.galleryEmptyText}>Henüz görsel yüklenmedi.</Text>
+                            </View>
+                        ) : (
+                            <ScrollView contentContainerStyle={styles.galleryGrid}>
+                                {gallery.map((item, idx) => (
+                                    <TouchableOpacity
+                                        key={idx}
+                                        style={styles.galleryItem}
+                                        onPress={() => selectFromGallery(item)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Image
+                                            source={{ uri: item.base64 }}
+                                            style={styles.galleryThumb}
+                                            resizeMode="cover"
+                                        />
+                                        <Text style={styles.galleryDate}>
+                                            {new Date(item.timestamp).toLocaleDateString('tr-TR')}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        )}
+
+                        <TouchableOpacity
+                            style={[styles.btn, styles.closeBtn, { marginTop: 16 }]}
+                            onPress={() => setGalleryVisible(false)}
+                        >
+                            <Text style={styles.btnText}>Kapat</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#121212' },
-    header: { flexDirection: 'row', justifyContent: 'center', gap: 10, padding: 12, backgroundColor: '#1a1a1a', flexWrap: 'wrap' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, backgroundColor: '#1a1a1a', zIndex: 100 },
+    headerBtns: { flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 10, flexWrap: 'wrap' },
+    hamburgerBtn: {
+        width: 40, height: 40, borderRadius: 10,
+        backgroundColor: '#333', alignItems: 'center', justifyContent: 'center',
+    },
+    hamburgerText: { fontSize: 20, color: '#fff' },
+    dropdownMenu: {
+        position: 'absolute', top: 46, left: 0,
+        backgroundColor: '#282828', borderRadius: 12,
+        paddingVertical: 6, minWidth: 140,
+        shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+        zIndex: 999, elevation: 10,
+        borderWidth: 1, borderColor: '#3a3a3a',
+    },
+    dropdownItem: { paddingVertical: 12, paddingHorizontal: 16 },
+    dropdownItemText: { color: '#fff', fontSize: 15, fontWeight: '500' },
     headerBtn: { backgroundColor: '#1DB954', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20 },
     decksBtn: { backgroundColor: '#2D46B9' },
     sentenceDecksBtn: { backgroundColor: '#7B5EA7' },
@@ -535,4 +684,25 @@ const styles = StyleSheet.create({
     },
     deckDot: { width: 14, height: 14, borderRadius: 7, marginRight: 14 },
     deckOptionText: { flex: 1, fontSize: 16, color: '#fff', fontWeight: '500' },
+
+    // Gallery styles
+    galleryOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center' },
+    galleryContent: {
+        backgroundColor: '#1a1a1a', borderRadius: 20, padding: 28,
+        width: Platform.OS === 'web' ? 500 : '90%',
+        maxHeight: '80%',
+    },
+    galleryTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 4 },
+    gallerySubtitle: { fontSize: 13, color: '#888', marginBottom: 20 },
+    galleryEmpty: { paddingVertical: 40, alignItems: 'center' },
+    galleryEmptyText: { color: '#666', fontSize: 15 },
+    galleryGrid: {
+        flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center',
+    },
+    galleryItem: {
+        width: 130, borderRadius: 12, overflow: 'hidden',
+        backgroundColor: '#282828', borderWidth: 1, borderColor: '#333',
+    },
+    galleryThumb: { width: 130, height: 100, borderTopLeftRadius: 12, borderTopRightRadius: 12 },
+    galleryDate: { color: '#aaa', fontSize: 11, textAlign: 'center', paddingVertical: 8 },
 });
