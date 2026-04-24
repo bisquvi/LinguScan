@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: always
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # If the host has NVIDIA GPU, you can uncomment the lines below to enable GPU for Ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - OLLAMA_URL=http://ollama:11434
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+      # Translation providers — uncomment and set keys to enable
+      # - GOOGLE_TRANSLATE_API_KEY=your-key-here
+      # - DEEPL_API_KEY=your-key-here
+      # - YANDEX_TRANSLATE_API_KEY=your-key-here
+      # - LIBRETRANSLATE_URL=http://libretranslate:5000
+      # - LIBRETRANSLATE_API_KEY=
+    depends_on:
+      - db
+      - ollama
+
+volumes:
+  postgres_data:
+  ollama_data:

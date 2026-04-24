@@ -29,21 +29,6 @@ services:
               count: 1
               capabilities: [ gpu ]
 
-  # ollama-pull-model:
-  #   image: curlimages/curl:latest
-  #   container_name: ocr_ollama_pull
-  #   depends_on:
-  #     - ollama
-  #   # Ollama endpoint for pulling model programmatically
-  #   command: >
-  #     sh -c "
-  #     echo 'Waiting for Ollama API...';
-  #     sleep 10;
-  #     echo 'Pulling Llama 3 model...';
-  #     curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"llama3\"}';
-  #     echo 'Done!';
-  #     "
-
   backend:
     build:
       context: ./backend
