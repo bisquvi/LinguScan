@@ -13,8 +13,8 @@ Bu proje; yüklenen görsellerin üzerindeki İngilizce metinleri tespit eden (E
 - Bilgisayarınızda **Docker** ve **Docker Compose** kurulu olmalıdır.
 - (Eğer kendi cihazınızda test edecekseniz) Frontend için bilgisayarınızda **Node.js** (v18+) kurulu olmalıdır.
 
-### Adım 1: Arka Ucu (Backend) Ayağa Kaldırma
-Proje dizininde (bu dosyanın olduğu dizin) aşağıdaki komutu çalıştırarak arka uç, veritabanı ve Ollama'yı başlatın:
+### Adım 1: Backend Ayağa Kaldırma
+Proje dizininde aşağıdaki komutu çalıştırarak backend, veritabanı ve Ollama'yı başlatın:
 
 ```cmd
 docker-compose -f docker-compose.dev.yml up -d --build
