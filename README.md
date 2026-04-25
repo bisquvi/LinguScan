@@ -5,7 +5,7 @@ Bu proje; yüklenen görsellerin üzerindeki İngilizce metinleri tespit eden (E
 ## Klasör Yapısı
 - `backend/`: FastAPI, PostgreSQL veritabanı bağlantısı, EasyOCR ve Ollama entegrasyonlarını içeren Python kodları.
 - `frontend/`: React Native (Expo) tabanlı, interaktif OCR kutucuklarını ve kart çalışma (Quiz) ekranlarını barındıran mobil arayüz.
-- `docker-compose.yml`: Veritabanı, Backend ve Ollama'yı tek komutla ayağa kaldıran yapılandırma.
+- `docker-compose.dev.yml` / `docker-compose.prod.yml`: Veritabanı, Backend ve Ollama'yı tek komutla ayağa kaldıran yapılandırmalar.
 
 ## Kurulum ve Çalıştırma
 
@@ -17,13 +17,19 @@ Bu proje; yüklenen görsellerin üzerindeki İngilizce metinleri tespit eden (E
 Proje dizininde (bu dosyanın olduğu dizin) aşağıdaki komutu çalıştırarak arka uç, veritabanı ve Ollama'yı başlatın:
 
 ```cmd
-docker-compose up -d --build
+docker-compose -f docker-compose.dev.yml up -d --build
 ```
 
-**Önemli Not (Ollama Llama 3 Modeli):**
-Konternerlar ayağa kalktığında ilk başta Ollama `llama3` modeline sahip olmayabilir. İndirmek için otomatik çalışan servis (`ocr_ollama_pull`) devreye girecektir. Eğer hata alırsanız manuel indirmek için:
+**Önemli Not (Ollama Modeli):**
+Ollama kullanabilmek için seçtiğiniz modelin yüklü olması gerekir. `.env` dosyanızda belirlediğiniz modeli (varsayılan: `llama3`) şu komutla indirebilirsiniz (eğer daha hafif bir model istiyorsanız `.env` içinde `OLLAMA_MODEL=phi3` yapıp `phi3` indirebilirsiniz):
 ```cmd
-docker exec -it ocr_ollama ollama run llama3
+docker-compose -f docker-compose.dev.yml exec ollama ollama run llama3
+```
+
+**Production & GPU Pass-through:**
+Eğer uygulamayı canlı sunucuya (Production) kuruyorsanız ve GPU hızlandırması istiyorsanız, sunucunuzda [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) kurulu olmalıdır. Kuruluysa, `docker-compose.prod.yml` içindeki `deploy` ayarları otomatik olarak GPU'yu kullanacaktır. Sunucuda başlatmak için:
+```cmd
+docker-compose -f docker-compose.prod.yml up -d --build
 ```
 
 API şu adreste çalışacaktır: `http://localhost:8000`

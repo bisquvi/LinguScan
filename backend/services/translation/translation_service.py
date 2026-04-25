@@ -80,6 +80,7 @@ class TranslationService:
                 TranslationCache.source_text == normalized,
                 TranslationCache.source_lang == source_lang,
                 TranslationCache.target_lang == target_lang,
+                TranslationCache.provider == provider_key,
             )
             .first()
         )

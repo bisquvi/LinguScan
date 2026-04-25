@@ -105,7 +105,7 @@ class QuizResult(Base):
 class TranslationCache(Base):
     __tablename__ = "translation_cache"
     __table_args__ = (
-        UniqueConstraint("source_text", "source_lang", "target_lang", name="uq_translation_lookup"),
+        UniqueConstraint("source_text", "source_lang", "target_lang", "provider", name="uq_translation_lookup"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -114,6 +114,8 @@ class TranslationCache(Base):
     target_lang = Column(String(10), nullable=False)
     provider = Column(String(50), nullable=False)
     translation = Column(Text, nullable=False)
+    meaning = Column(Text, nullable=True)    # Cached Ollama meaning
+    example = Column(Text, nullable=True)    # Cached Ollama example
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 class UserSettings(Base):

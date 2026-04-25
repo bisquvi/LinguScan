@@ -4,6 +4,7 @@ import json
 import re
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 
 async def get_translation_and_meaning(text: str, is_word: bool = False):
     """
@@ -45,7 +46,7 @@ async def get_translation_and_meaning(text: str, is_word: bool = False):
             response = await client.post(
                 f"{OLLAMA_URL}/api/generate",
                 json={
-                    "model": "llama3",
+                    "model": OLLAMA_MODEL,
                     "prompt": prompt,
                     "format": "json",
                     "stream": False,
@@ -136,7 +137,7 @@ async def get_meaning_and_example(text: str, is_word: bool = False):
             response = await client.post(
                 f"{OLLAMA_URL}/api/generate",
                 json={
-                    "model": "llama3",
+                    "model": OLLAMA_MODEL,
                     "prompt": prompt,
                     "format": "json",
                     "stream": False,

@@ -33,6 +33,31 @@ async def translate_text(req: TranslationRequest, db: Session = Depends(get_db))
         )
         provider_key = settings.translation_provider if settings else "google_free"
 
+    # --- 1. Cache Lookup including Meaning & Example ---
+    from services.translation.translation_service import _normalize_text
+    normalized = _normalize_text(req.text)
+    
+    cached = (
+        db.query(models.TranslationCache)
+        .filter(
+            models.TranslationCache.source_text == normalized,
+            models.TranslationCache.source_lang == req.source_lang,
+            models.TranslationCache.target_lang == req.target_lang,
+            models.TranslationCache.provider == provider_key,
+        )
+        .first()
+    )
+
+    if cached and cached.meaning:
+        print(f"[translate] Full Cache HIT for '{normalized}'")
+        return TranslationResponse(
+            translation=cached.translation,
+            meaning=cached.meaning,
+            example=cached.example or "",
+            provider_used=cached.provider,
+        )
+
+    # --- 2. Fetch if not fully cached ---
     translation_coro = TranslationService.translate(
         text=req.text,
         source_lang=req.source_lang,
@@ -52,6 +77,23 @@ async def translate_text(req: TranslationRequest, db: Session = Depends(get_db))
         ai_result = await get_meaning_and_example(req.text, req.is_word)
         translated_text = ai_result.get("translation", req.text)
         provider_used = "ollama-fallback"
+
+    # --- 3. Update Cache with AI generation ---
+    # Refresh 'cached' in case TranslationService.translate just created it
+    cached = (
+        db.query(models.TranslationCache)
+        .filter(
+            models.TranslationCache.source_text == normalized,
+            models.TranslationCache.source_lang == req.source_lang,
+            models.TranslationCache.target_lang == req.target_lang,
+            models.TranslationCache.provider == provider_used,
+        )
+        .first()
+    )
+    if cached:
+        cached.meaning = ai_result.get("meaning", "")
+        cached.example = ai_result.get("example", "")
+        db.commit()
 
     return TranslationResponse(
         translation=translated_text,
