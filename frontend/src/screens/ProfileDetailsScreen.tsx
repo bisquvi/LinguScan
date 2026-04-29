@@ -127,14 +127,13 @@ export default function ProfileDetailsScreen() {
             </View>
 
             <View style={styles.dangerZone}>
-                <Text style={styles.dangerTitle}>Tehlikeli Bölge</Text>
                 <TouchableOpacity
                     style={styles.deleteButton}
                     onPress={handleDeleteAccount}
                     disabled={deleting}
                 >
                     {deleting ? (
-                        <ActivityIndicator size="small" color="#fff" />
+                        <ActivityIndicator size="small" color="#ff4d4d" />
                     ) : (
                         <Text style={styles.deleteButtonText}>Hesabı Kalıcı Olarak Sil</Text>
                     )}
@@ -253,28 +252,15 @@ const styles = StyleSheet.create({
         color: '#666',
     },
     dangerZone: {
-        marginTop: 20,
-        padding: 20,
-        backgroundColor: '#1a0b0b',
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: '#4a1515',
-    },
-    dangerTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#ff4d4d',
-        marginBottom: 16,
-    },
-    deleteButton: {
-        backgroundColor: '#ff3333',
-        borderRadius: 10,
-        padding: 14,
+        marginTop: 40,
         alignItems: 'center',
     },
+    deleteButton: {
+        padding: 14,
+    },
     deleteButtonText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 16,
+        color: '#ff4d4d',
+        fontSize: 15,
+        textDecorationLine: 'underline',
     },
 });

@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, StyleSheet,
-    ActivityIndicator, Alert
+    ActivityIndicator, Alert, Animated, Pressable
 } from 'react-native';
 import { apiClient } from '../api/client';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -18,6 +18,53 @@ interface SentenceCard {
     front: string;
     back: string;
 }
+
+const AnimatedSentenceCard = ({ item, onDelete }: { item: SentenceCard, onDelete: (card: SentenceCard) => void }) => {
+    const anim = React.useRef(new Animated.Value(0)).current;
+
+    const handleHoverIn = () => {
+        Animated.timing(anim, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: false,
+        }).start();
+    };
+
+    const handleHoverOut = () => {
+        Animated.timing(anim, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: false,
+        }).start();
+    };
+
+    return (
+        <View style={styles.card}>
+            <Animated.View style={[
+                StyleSheet.absoluteFill,
+                {
+                    backgroundColor: 'rgba(233, 20, 41, 0.15)',
+                    width: anim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
+                    right: 0,
+                    left: 'auto',
+                }
+            ]} />
+            <View style={styles.cardContent}>
+                <Text style={styles.frontText}>{item.front}</Text>
+                <Text style={styles.backText}>{item.back}</Text>
+            </View>
+            <Pressable
+                style={styles.deleteBtn}
+                onPress={() => onDelete(item)}
+                // @ts-ignore
+                onHoverIn={handleHoverIn}
+                onHoverOut={handleHoverOut}
+            >
+                <Text style={styles.deleteBtnText}>✕</Text>
+            </Pressable>
+        </View>
+    );
+};
 
 export default function SentenceDeckDetailScreen() {
     const navigation = useNavigation<NavProp>();
@@ -62,15 +109,7 @@ export default function SentenceDeckDetailScreen() {
     };
 
     const renderCard = ({ item }: { item: SentenceCard }) => (
-        <View style={styles.card}>
-            <View style={styles.cardContent}>
-                <Text style={styles.frontText}>{item.front}</Text>
-                <Text style={styles.backText}>{item.back}</Text>
-            </View>
-            <TouchableOpacity style={styles.deleteBtn} onPress={() => deleteCard(item)}>
-                <Text style={styles.deleteBtnText}>✕</Text>
-            </TouchableOpacity>
-        </View>
+        <AnimatedSentenceCard item={item} onDelete={deleteCard} />
     );
 
     return (
@@ -123,12 +162,12 @@ const styles = StyleSheet.create({
     frontText: { fontSize: 16, fontWeight: 'bold', color: '#fff', marginBottom: 8, lineHeight: 22 },
     backText: { fontSize: 15, color: '#1DB954', lineHeight: 20 },
     deleteBtn: {
-        backgroundColor: '#E91429',
         alignSelf: 'stretch',
         justifyContent: 'center',
-        paddingHorizontal: 16,
+        paddingHorizontal: 20,
+        zIndex: 1,
     },
-    deleteBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+    deleteBtnText: { color: '#ff4d4d', fontWeight: 'bold', fontSize: 18 },
     empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
     emptyEmoji: { fontSize: 56, marginBottom: 16 },
     emptyText: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 8 },

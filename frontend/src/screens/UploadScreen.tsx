@@ -408,7 +408,7 @@ export default function UploadScreen() {
                     </TouchableOpacity>
 
                     {profileMenuOpen && user && (
-                        <View style={[styles.dropdownMenu, { right: 0, left: 'auto', minWidth: 160 }]}>
+                        <View style={[styles.dropdownMenu, { right: 0, left: 'auto', minWidth: 180 }]}>
                             <TouchableOpacity
                                 style={styles.dropdownItem}
                                 onPress={() => { setProfileMenuOpen(false); navigation.navigate('ProfileDetails'); }}
