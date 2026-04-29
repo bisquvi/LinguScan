@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, StyleSheet,
-    ActivityIndicator, Modal, TextInput
+    ActivityIndicator, Modal, TextInput, Platform
 } from 'react-native';
 import { apiClient } from '../api/client';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -36,6 +36,13 @@ export default function DecksScreen() {
     const [deckPickerVisible, setDeckPickerVisible] = useState(false);
     const [fetchingDecks, setFetchingDecks] = useState(false);
     const [addingCard, setAddingCard] = useState(false);
+
+    // Excel import state
+    const [excelFile, setExcelFile] = useState<File | null>(null);
+    const [importing, setImporting] = useState(false);
+    const [importResult, setImportResult] = useState<{ imported: number } | null>(null);
+    const excelInputRef = useRef<HTMLInputElement | null>(null);
+
     const navigation = useNavigation<NavigationProp>();
 
     // Reload decks every time the screen comes into focus
@@ -61,15 +68,67 @@ export default function DecksScreen() {
         if (!newDeckName.trim()) return;
         setCreating(true);
         try {
-            await apiClient.post('/decks/', { name: newDeckName.trim() });
+            const resp = await apiClient.post('/decks/', { name: newDeckName.trim() });
+            const newDeck = resp.data;
+
+            // If an Excel file was attached, import it into the new deck
+            if (excelFile) {
+                setImporting(true);
+                try {
+                    const formData = new FormData();
+                    formData.append('file', excelFile, excelFile.name);
+                    const importResp = await apiClient.post(
+                        `/decks/${newDeck.id}/import-excel`,
+                        formData,
+                        { headers: { 'Content-Type': 'multipart/form-data' } }
+                    );
+                    setImportResult(importResp.data);
+                } catch {
+                    showAlert('Uyarı', 'Deste oluşturuldu ancak Excel içe aktarma başarısız oldu.');
+                } finally {
+                    setImporting(false);
+                }
+            }
+
             setNewDeckName('');
-            setCreateVisible(false);
+            setExcelFile(null);
+            if (!excelFile) setCreateVisible(false);
             await fetchDecks();
         } catch {
             showAlert('Hata', 'Deste oluşturulamadı. Lütfen tekrar deneyin.');
         } finally {
             setCreating(false);
         }
+    };
+
+    const closeCreateModal = () => {
+        setCreateVisible(false);
+        setNewDeckName('');
+        setExcelFile(null);
+        setImportResult(null);
+    };
+
+    const pickExcelFile = () => {
+        if (Platform.OS === 'web') {
+            excelInputRef.current?.click();
+        }
+    };
+
+    const onExcelFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const ext = file.name.split('.').pop()?.toLowerCase();
+            if (ext === 'xlsx' || ext === 'xls') {
+                setExcelFile(file);
+                // Eğer deste adı boşsa, otomatik olarak dosya adını yaz (uzantısız)
+                if (!newDeckName.trim()) {
+                    setNewDeckName(file.name.replace(/\.[^/.]+$/, ""));
+                }
+            } else {
+                showAlert('Geçersiz Dosya', 'Sadece .xlsx veya .xls dosyaları desteklenir.');
+            }
+        }
+        event.target.value = '';
     };
 
     const openManualAdd = () => {
@@ -172,6 +231,17 @@ export default function DecksScreen() {
 
     return (
         <View style={styles.container}>
+            {/* Hidden Excel file input (web only) */}
+            {Platform.OS === 'web' && (
+                <input
+                    ref={excelInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    style={{ display: 'none' }}
+                    onChange={onExcelFileChange as any}
+                />
+            )}
+
             {/* Header */}
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>📚 Destelerim</Text>
@@ -206,33 +276,109 @@ export default function DecksScreen() {
             <Modal visible={createVisible} transparent animationType="slide">
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Yeni Deste Oluştur</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Deste adı (örn. Kitap: 1984)"
-                            value={newDeckName}
-                            onChangeText={setNewDeckName}
-                            autoFocus
-                            onSubmitEditing={createDeck}
-                        />
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity
-                                style={[styles.modalBtn, styles.cancelBtn]}
-                                onPress={() => { setCreateVisible(false); setNewDeckName(''); }}
-                            >
-                                <Text style={styles.modalBtnText}>İptal</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.modalBtn, styles.confirmBtn, !newDeckName.trim() && styles.disabledBtn]}
-                                onPress={createDeck}
-                                disabled={!newDeckName.trim() || creating}
-                            >
-                                {creating
-                                    ? <ActivityIndicator color="#fff" size="small" />
-                                    : <Text style={styles.modalBtnText}>Oluştur</Text>
-                                }
-                            </TouchableOpacity>
-                        </View>
+                        {importResult ? (
+                            /* ── Import result view ── */
+                            <View style={styles.importResultContainer}>
+                                <Text style={styles.importResultEmoji}>✅</Text>
+                                <Text style={styles.importResultTitle}>İçe Aktarma Tamamlandı!</Text>
+                                <Text style={styles.importResultCount}>
+                                    {importResult.imported} kelime başarıyla eklendi
+                                </Text>
+                                <TouchableOpacity
+                                    style={[styles.modalBtn, styles.confirmBtn, { marginTop: 20 }]}
+                                    onPress={closeCreateModal}
+                                >
+                                    <Text style={styles.modalBtnText}>Tamam</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : importing ? (
+                            /* ── Importing spinner ── */
+                            <View style={styles.importingContainer}>
+                                <ActivityIndicator size="large" color="#1DB954" />
+                                <Text style={styles.importingText}>Excel dosyası içe aktarılıyor...</Text>
+                            </View>
+                        ) : (
+                            /* ── Normal create deck form ── */
+                            <>
+                                <Text style={styles.modalTitle}>Yeni Deste Oluştur</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Deste adı (örn. Kitap: 1984)"
+                                    placeholderTextColor="#888"
+                                    value={newDeckName}
+                                    onChangeText={setNewDeckName}
+                                    autoFocus
+                                    onSubmitEditing={createDeck}
+                                />
+
+                                {/* ── Excel Import Section ── */}
+                                <View style={styles.excelSection}>
+                                    <View style={styles.excelDivider}>
+                                        <View style={styles.excelDividerLine} />
+                                        <Text style={styles.excelDividerText}>Excel ile toplu ekle</Text>
+                                        <View style={styles.excelDividerLine} />
+                                    </View>
+
+                                    <TouchableOpacity
+                                        style={[styles.excelBtn, excelFile && styles.excelBtnSelected]}
+                                        onPress={pickExcelFile}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={styles.excelBtnIcon}>📊</Text>
+                                        <View style={styles.excelBtnTextContainer}>
+                                            <Text style={styles.excelBtnText}>
+                                                {excelFile ? excelFile.name : 'Excel Dosyası Seç (.xlsx)'}
+                                            </Text>
+                                            <Text style={styles.excelBtnHint}>
+                                                {excelFile
+                                                    ? 'Değiştirmek için tıkla'
+                                                    : 'Sütunlar: Kelime | Anlam | Açıklama'}
+                                            </Text>
+                                        </View>
+                                        {excelFile && (
+                                            <TouchableOpacity
+                                                style={styles.excelRemoveBtn}
+                                                onPress={(e) => {
+                                                    e.stopPropagation();
+                                                    setExcelFile(null);
+                                                }}
+                                            >
+                                                <Text style={styles.excelRemoveText}>✕</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    </TouchableOpacity>
+
+                                    {excelFile && (
+                                        <View style={styles.excelInfo}>
+                                            <Text style={styles.excelInfoText}>
+                                                📎 {excelFile.name} ({(excelFile.size / 1024).toFixed(1)} KB)
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+
+                                <View style={styles.modalButtons}>
+                                    <TouchableOpacity
+                                        style={[styles.modalBtn, styles.cancelBtn]}
+                                        onPress={closeCreateModal}
+                                    >
+                                        <Text style={styles.modalBtnText}>İptal</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.modalBtn, styles.confirmBtn, !newDeckName.trim() && styles.disabledBtn]}
+                                        onPress={createDeck}
+                                        disabled={!newDeckName.trim() || creating}
+                                    >
+                                        {creating
+                                            ? <ActivityIndicator color="#fff" size="small" />
+                                            : <Text style={styles.modalBtnText}>
+                                                {excelFile ? '📊 Oluştur ve İçe Aktar' : 'Oluştur'}
+                                            </Text>
+                                        }
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        )}
                     </View>
                 </View>
             </Modal>
@@ -249,18 +395,21 @@ export default function DecksScreen() {
                         <TextInput
                             style={styles.input}
                             placeholder="Kelime (Ingilizce)"
+                            placeholderTextColor="#888"
                             value={manualFront}
                             onChangeText={setManualFront}
                         />
                         <TextInput
                             style={styles.input}
                             placeholder="Turkce karsiligi"
+                            placeholderTextColor="#888"
                             value={manualBack}
                             onChangeText={setManualBack}
                         />
                         <TextInput
                             style={[styles.input, styles.inputMultiline]}
                             placeholder="Aciklama (opsiyonel)"
+                            placeholderTextColor="#888"
                             value={manualContext}
                             onChangeText={setManualContext}
                             multiline
@@ -399,6 +548,56 @@ const styles = StyleSheet.create({
     disabledBtn: { opacity: 0.4 },
     modalBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
     inputMultiline: { minHeight: 72, textAlignVertical: 'top' },
+
+    // Excel import styles
+    excelSection: { marginBottom: 20 },
+    excelDivider: {
+        flexDirection: 'row', alignItems: 'center', marginBottom: 14,
+    },
+    excelDividerLine: {
+        flex: 1, height: 1, backgroundColor: '#404040',
+    },
+    excelDividerText: {
+        color: '#888', fontSize: 12, fontWeight: '600',
+        marginHorizontal: 12, textTransform: 'uppercase', letterSpacing: 0.5,
+    },
+    excelBtn: {
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: '#1a1a1a', borderRadius: 12,
+        padding: 14, borderWidth: 1.5,
+        borderColor: '#404040', borderStyle: 'dashed',
+    },
+    excelBtnSelected: {
+        borderColor: '#1DB954', borderStyle: 'solid',
+        backgroundColor: 'rgba(29, 185, 84, 0.08)',
+    },
+    excelBtnIcon: { fontSize: 28, marginRight: 12 },
+    excelBtnTextContainer: { flex: 1 },
+    excelBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+    excelBtnHint: { color: '#888', fontSize: 11, marginTop: 3 },
+    excelRemoveBtn: {
+        width: 28, height: 28, borderRadius: 14,
+        backgroundColor: '#E91429', alignItems: 'center', justifyContent: 'center',
+    },
+    excelRemoveText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
+    excelInfo: {
+        marginTop: 8, paddingHorizontal: 4,
+    },
+    excelInfoText: { color: '#1DB954', fontSize: 12, fontWeight: '500' },
+
+    // Import progress/result
+    importingContainer: {
+        alignItems: 'center', paddingVertical: 40,
+    },
+    importingText: {
+        color: '#b3b3b3', fontSize: 15, marginTop: 16, fontWeight: '500',
+    },
+    importResultContainer: {
+        alignItems: 'center', paddingVertical: 20,
+    },
+    importResultEmoji: { fontSize: 48, marginBottom: 12 },
+    importResultTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff', marginBottom: 8 },
+    importResultCount: { fontSize: 16, color: '#1DB954', fontWeight: '600' },
 
     fab: {
         position: 'absolute',

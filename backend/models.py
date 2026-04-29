@@ -14,7 +14,12 @@ class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
+    password = Column(String, nullable=True)
+    token = Column(String, nullable=True, index=True)
     decks = relationship("Deck", back_populates="owner")
+    sentence_decks = relationship("SentenceDeck", back_populates="owner")
+    settings = relationship("UserSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    quiz_sessions = relationship("QuizSession", back_populates="user", cascade="all, delete")
 
 class Deck(Base):
     __tablename__ = "decks"
@@ -64,7 +69,7 @@ class SentenceDeck(Base):
     name = Column(String, index=True)
     owner_id = Column(Integer, ForeignKey("users.id"))
     
-    owner = relationship("User")
+    owner = relationship("User", back_populates="sentence_decks")
     cards = relationship("SentenceCard", back_populates="deck", cascade="all, delete")
 
 class SentenceCard(Base):
@@ -89,6 +94,7 @@ class QuizSession(Base):
     wrong_answers = Column(Integer, default=0)
     accuracy = Column(Float, default=0.0)
 
+    user = relationship("User", back_populates="quiz_sessions")
     results = relationship("QuizResult", back_populates="session", cascade="all, delete")
 
 class QuizResult(Base):
@@ -123,6 +129,6 @@ class UserSettings(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True)
-    translation_provider = Column(String(50), default="google")
+    translation_provider = Column(String(50), default="google_free")
 
-    user = relationship("User")
+    user = relationship("User", back_populates="settings")

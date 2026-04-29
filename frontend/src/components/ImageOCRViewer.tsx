@@ -1,26 +1,6 @@
-import React from 'react';
-import { View, Image, TouchableOpacity, Text, StyleSheet, LayoutChangeEvent, Platform } from 'react-native';
-import { useState, useEffect } from 'react';
-
-export interface OCRBox {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-}
-
-export interface WordResult {
-    text: string;
-    box: OCRBox;
-}
-
-export interface OCRResult {
-    text: string;
-    box: OCRBox;
-    words: WordResult[];
-}
-
-export type ViewMode = 'words' | 'sentences' | 'fulltext';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Image, TouchableOpacity, Text, StyleSheet, LayoutChangeEvent, Platform, PanResponder } from 'react-native';
+import { OCRBox, OCRResult, ViewMode, WordResult } from '../types/ocr';
 
 interface Props {
     imageUri: string;
@@ -30,17 +10,80 @@ interface Props {
     onSentencePress?: (text: string) => void;
     viewMode: ViewMode;
     onViewModeChange: (mode: ViewMode) => void;
+    zoomScale?: number;
 }
 
 export default function ImageOCRViewer({
     imageUri, ocrData, onTextPress, onWordPress, onSentencePress,
-    viewMode, onViewModeChange,
+    viewMode, onViewModeChange, zoomScale = 1
 }: Props) {
     const [originalSize, setOriginalSize] = useState({ width: 0, height: 0 });
     const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
 
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const panRef = useRef({ x: 0, y: 0 });
+    const panStartRef = useRef({ x: 0, y: 0 });
+    const zoomScaleRef = useRef(zoomScale);
+    const displaySizeRef = useRef(displaySize);
+
+    useEffect(() => { zoomScaleRef.current = zoomScale; }, [zoomScale]);
+    useEffect(() => { displaySizeRef.current = displaySize; }, [displaySize]);
+    useEffect(() => { panRef.current = pan; }, [pan]);
+
+    useEffect(() => {
+        if (zoomScale <= 1) {
+            setPan({ x: 0, y: 0 });
+        } else {
+            const maxPanX = (displaySize.width * (zoomScale - 1)) / 2;
+            const maxPanY = (displaySize.height * (zoomScale - 1)) / 2;
+            setPan(prev => ({
+                x: Math.min(Math.max(prev.x, -maxPanX), maxPanX),
+                y: Math.min(Math.max(prev.y, -maxPanY), maxPanY)
+            }));
+        }
+    }, [zoomScale, displaySize]);
+
+    const panResponder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => false,
+            onMoveShouldSetPanResponder: (evt, gestureState) => {
+                return zoomScaleRef.current > 1 && (Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5);
+            },
+            onPanResponderGrant: () => {
+                panStartRef.current = { ...panRef.current };
+                setIsDragging(true);
+            },
+            onPanResponderMove: (evt, gestureState) => {
+                const zScale = zoomScaleRef.current;
+                if (zScale > 1) {
+                    const dSize = displaySizeRef.current;
+                    const maxPanX = (dSize.width * (zScale - 1)) / 2;
+                    const maxPanY = (dSize.height * (zScale - 1)) / 2;
+                    
+                    let newX = panStartRef.current.x + gestureState.dx;
+                    let newY = panStartRef.current.y + gestureState.dy;
+
+                    newX = Math.min(Math.max(newX, -maxPanX), maxPanX);
+                    newY = Math.min(Math.max(newY, -maxPanY), maxPanY);
+
+                    setPan({ x: newX, y: newY });
+                }
+            },
+            onPanResponderRelease: () => {
+                setIsDragging(false);
+            },
+            onPanResponderTerminate: () => {
+                setIsDragging(false);
+            }
+        })
+    ).current;
+
     useEffect(() => {
         if (!imageUri) return;
+
+        // Reset so stale scale factors don't position old boxes on the new image
+        setOriginalSize({ width: 0, height: 0 });
 
         if (Platform.OS === 'web' && imageUri.startsWith('blob:')) {
             const img = new (window as any).Image();
@@ -212,8 +255,16 @@ export default function ImageOCRViewer({
 
             {/* ── Image + OCR Overlay ──────────────────── */}
             <View style={styles.webContainer}>
-                <View style={styles.container} onLayout={onLayout}>
-                    <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" />
+                <View 
+                    style={[
+                        styles.container, 
+                        Platform.OS === 'web' && zoomScale > 1 ? { cursor: isDragging ? 'grabbing' : 'grab' } as any : {}
+                    ]} 
+                    onLayout={onLayout} 
+                    {...panResponder.panHandlers}
+                >
+                    <View style={{ width: '100%', height: '100%', transform: [{ translateX: pan.x }, { translateY: pan.y }, { scale: zoomScale }] }}>
+                        <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" />
 
                     {originalSize.width > 0 && viewMode === 'words' && ocrData.map((item, si) => (
                         <React.Fragment key={`words-${si}`}>
@@ -256,6 +307,7 @@ export default function ImageOCRViewer({
                             />
                         );
                     })()}
+                    </View>
                 </View>
             </View>
         </View>

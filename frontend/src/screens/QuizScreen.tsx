@@ -23,13 +23,22 @@ export default function QuizScreen() {
     const route = useRoute<RoutePropType>();
     const { sessionId, quizType, cards } = route.params;
 
+    const [shuffledCards] = useState(() => {
+        const arr = [...cards];
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    });
+
     const [currentIndex, setCurrentIndex] = useState(0);
     const [showAnswer, setShowAnswer] = useState(false);
     const [selectedOption, setSelectedOption] = useState<number | null>(null);
     const [answered, setAnswered] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    const currentCard = cards[currentIndex];
+    const currentCard = shuffledCards[currentIndex];
 
     const submitReview = async (rating: string, isCorrect: boolean) => {
         setLoading(true);
@@ -51,7 +60,7 @@ export default function QuizScreen() {
         setSelectedOption(null);
         setAnswered(false);
 
-        if (currentIndex + 1 < cards.length) {
+        if (currentIndex + 1 < shuffledCards.length) {
             setCurrentIndex(currentIndex + 1);
         } else {
             // finish session
@@ -78,14 +87,14 @@ export default function QuizScreen() {
 
     if (!currentCard) return <ActivityIndicator size="large" style={{ marginTop: 50 }} />;
 
-    const progress = `${currentIndex + 1} / ${cards.length}`;
+    const progress = `${currentIndex + 1} / ${shuffledCards.length}`;
 
     // ── Recall mode ──────────────────────────────────────────────────────────
     if (quizType === 'recall') {
         return (
             <View style={styles.container}>
                 <Text style={styles.progress}>{progress}</Text>
-                <ProgressBar current={currentIndex + 1} total={cards.length} />
+                <ProgressBar current={currentIndex + 1} total={shuffledCards.length} />
 
                 <View style={styles.flashcard}>
                     <Text style={styles.modeLabel}>İngilizce → Türkçe</Text>
@@ -129,7 +138,7 @@ export default function QuizScreen() {
     return (
         <View style={styles.container}>
             <Text style={styles.progress}>{progress}</Text>
-            <ProgressBar current={currentIndex + 1} total={cards.length} />
+            <ProgressBar current={currentIndex + 1} total={shuffledCards.length} />
 
             <View style={styles.flashcard}>
                 <Text style={styles.modeLabel}>İngilizce → Türkçe</Text>
@@ -164,7 +173,7 @@ export default function QuizScreen() {
             {answered && (
                 <TouchableOpacity style={styles.nextBtn} onPress={moveNext} disabled={loading}>
                     <Text style={styles.nextBtnText}>
-                        {currentIndex + 1 < cards.length ? 'Sonraki →' : 'Bitir'}
+                        {currentIndex + 1 < shuffledCards.length ? 'Sonraki →' : 'Bitir'}
                     </Text>
                 </TouchableOpacity>
             )}

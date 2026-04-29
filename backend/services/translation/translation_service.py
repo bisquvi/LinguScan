@@ -1,27 +1,10 @@
-import re
-import unicodedata
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
 from .base_provider import TranslationProvider
 from . import PROVIDER_REGISTRY, DEFAULT_FALLBACK_CHAIN
-
-
-def _normalize_text(text: str) -> str:
-    """
-    Normalize text for cache key purposes.
-
-    - Unicode NFC normalization
-    - Lowercase
-    - Strip leading/trailing whitespace
-    - For single words: strip surrounding punctuation
-    """
-    text = unicodedata.normalize("NFC", text).strip().lower()
-    # For single words (no spaces), strip surrounding punctuation
-    if " " not in text:
-        text = re.sub(r'^[^\w]+|[^\w]+$', '', text)
-    return text
+from .text_utils import normalize_text
 
 
 def _get_provider_instance(provider_key: str) -> Optional[TranslationProvider]:
@@ -71,7 +54,7 @@ class TranslationService:
         """
         from models import TranslationCache  # avoid circular import
 
-        normalized = _normalize_text(text)
+        normalized = normalize_text(text)
 
         # ── 1. Cache lookup ──────────────────────────────────────────
         cached = (

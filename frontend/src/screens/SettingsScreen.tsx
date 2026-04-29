@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity,
     ActivityIndicator, ScrollView,
 } from 'react-native';
 import { apiClient } from '../api/client';
+import { AuthContext } from '../context/AuthContext';
 
 interface ProviderOption {
     key: string;
@@ -25,7 +26,8 @@ const PROVIDERS: ProviderOption[] = [
 interface Toast { message: string; success: boolean; }
 
 export default function SettingsScreen() {
-    const [selectedProvider, setSelectedProvider] = useState('google');
+    const { user } = useContext(AuthContext);
+    const [selectedProvider, setSelectedProvider] = useState('google_free');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState<Toast | null>(null);
@@ -36,6 +38,11 @@ export default function SettingsScreen() {
     };
 
     useEffect(() => {
+        if (!user) {
+            setLoading(false);
+            return;
+        }
+
         (async () => {
             try {
                 const resp = await apiClient.get('/settings');
@@ -46,7 +53,7 @@ export default function SettingsScreen() {
                 setLoading(false);
             }
         })();
-    }, []);
+    }, [user]);
 
     const handleSelect = async (key: string) => {
         if (key === selectedProvider) return;
@@ -67,6 +74,17 @@ export default function SettingsScreen() {
         return (
             <View style={styles.center}>
                 <ActivityIndicator size="large" color="#1DB954" />
+            </View>
+        );
+    }
+
+    if (!user) {
+        return (
+            <View style={styles.center}>
+                <Text style={styles.loginTitle}>Giriş gerekli</Text>
+                <Text style={styles.loginText}>
+                    Çeviri ayarlarını değiştirmek için önce hesabınıza giriş yapın.
+                </Text>
             </View>
         );
     }
@@ -131,6 +149,8 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#121212' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#121212' },
+    loginTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 8 },
+    loginText: { fontSize: 14, color: '#b3b3b3', textAlign: 'center', paddingHorizontal: 32, lineHeight: 22 },
     scrollContent: { padding: 20, paddingBottom: 40 },
 
     sectionTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 6 },

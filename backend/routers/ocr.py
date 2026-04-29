@@ -1,15 +1,18 @@
 import asyncio
 
-from fastapi import APIRouter, UploadFile, File, Depends
+from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.orm import Session
 
 from database import get_db
-from services.ocr_service import process_image_for_ocr
-from services.ai_service import get_meaning_and_example
-from services.translation.translation_service import TranslationService
-from schemas import OCRResult, TranslationRequest, TranslationResponse
-from typing import List
 import models
+from routers.auth import get_optional_current_user
+from schemas import OCRResult, TranslationRequest, TranslationResponse
+from services.ai_service import get_meaning_and_example
+from services.ocr_service import process_image_for_ocr
+from services.translation.text_utils import normalize_text
+from services.translation.translation_service import TranslationService
+
+from typing import List, Optional
 
 router = APIRouter()
 
@@ -17,26 +20,24 @@ router = APIRouter()
 @router.post("/process-image", response_model=List[OCRResult])
 async def upload_image(file: UploadFile = File(...)):
     contents = await file.read()
-    results = process_image_for_ocr(contents)
-    return results
+    return process_image_for_ocr(contents)
 
 
 @router.post("/translate", response_model=TranslationResponse)
-async def translate_text(req: TranslationRequest, db: Session = Depends(get_db)):
-    
+async def translate_text(
+    req: TranslationRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[models.User] = Depends(get_optional_current_user),
+):
     provider_key = req.provider
     if not provider_key:
-        settings = (
-            db.query(models.UserSettings)
-            .filter(models.UserSettings.user_id == 1)
-            .first()
-        )
-        provider_key = settings.translation_provider if settings else "google_free"
+        if current_user:
+            settings = db.query(models.UserSettings).filter(models.UserSettings.user_id == current_user.id).first()
+            provider_key = settings.translation_provider if settings else "google_free"
+        else:
+            provider_key = "google_free"
 
-    # --- 1. Cache Lookup including Meaning & Example ---
-    from services.translation.translation_service import _normalize_text
-    normalized = _normalize_text(req.text)
-    
+    normalized = normalize_text(req.text)
     cached = (
         db.query(models.TranslationCache)
         .filter(
@@ -49,7 +50,6 @@ async def translate_text(req: TranslationRequest, db: Session = Depends(get_db))
     )
 
     if cached and cached.meaning:
-        print(f"[translate] Full Cache HIT for '{normalized}'")
         return TranslationResponse(
             translation=cached.translation,
             meaning=cached.meaning,
@@ -57,7 +57,6 @@ async def translate_text(req: TranslationRequest, db: Session = Depends(get_db))
             provider_used=cached.provider,
         )
 
-    # --- 2. Fetch if not fully cached ---
     translation_coro = TranslationService.translate(
         text=req.text,
         source_lang=req.source_lang,
@@ -68,18 +67,13 @@ async def translate_text(req: TranslationRequest, db: Session = Depends(get_db))
     meaning_coro = get_meaning_and_example(req.text, req.is_word)
 
     try:
-        (translated_text, provider_used), ai_result = await asyncio.gather(
-            translation_coro,
-            meaning_coro,
-        )
-    except Exception as e:
-        print(f"[translate] Error: {e}")
+        (translated_text, provider_used), ai_result = await asyncio.gather(translation_coro, meaning_coro)
+    except Exception as exc:
+        print(f"[translate] Error: {exc}")
         ai_result = await get_meaning_and_example(req.text, req.is_word)
         translated_text = ai_result.get("translation", req.text)
         provider_used = "ollama-fallback"
 
-    # --- 3. Update Cache with AI generation ---
-    # Refresh 'cached' in case TranslationService.translate just created it
     cached = (
         db.query(models.TranslationCache)
         .filter(

@@ -1,15 +1,19 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
-    View, Text, Button, StyleSheet, ActivityIndicator,
-    Modal, TouchableOpacity, Platform, FlatList, ScrollView, Image
+    View, Text, StyleSheet, ActivityIndicator,
+    Modal, TouchableOpacity, Platform, FlatList, ScrollView, Image, Animated, Alert
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import ImageOCRViewer, { OCRResult, ViewMode } from '../components/ImageOCRViewer';
 import { apiClient } from '../api/client';
+import ImageOCRViewer from '../components/ImageOCRViewer';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App';
+import { AuthContext } from '../context/AuthContext';
+import LoginModal from '../components/LoginModal';
+import { RootStackParamList } from '../types/navigation';
+import { OCRResult, ViewMode } from '../types/ocr';
+import { showAlert } from '../utils/alert';
 
 const GALLERY_KEY = 'gallery_history';
 const MAX_GALLERY = 5;
@@ -59,6 +63,28 @@ export default function UploadScreen() {
     const [imageUri, setImageUri] = useState<string | null>(null);
     const [ocrData, setOcrData] = useState<OCRResult[]>([]);
     const [loading, setLoading] = useState(false);
+    const [zoomScale, setZoomScale] = useState(1);
+    const [toolsOpen, setToolsOpen] = useState(false);
+    const [loginModalVisible, setLoginModalVisible] = useState(false);
+    const { user, logout } = useContext(AuthContext);
+    const animation = useRef(new Animated.Value(0)).current;
+
+    const toggleTools = () => {
+        const toValue = toolsOpen ? 0 : 1;
+        Animated.spring(animation, {
+            toValue,
+            useNativeDriver: false,
+            friction: 5,
+            tension: 40
+        }).start();
+        setToolsOpen(!toolsOpen);
+    };
+
+    const sat1X = animation.interpolate({ inputRange: [0, 1], outputRange: [0, -45] });
+    const sat1Y = animation.interpolate({ inputRange: [0, 1], outputRange: [0, -80] });
+    
+    const sat2X = animation.interpolate({ inputRange: [0, 1], outputRange: [0, -85] });
+    const sat2Y = animation.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });
 
     // View mode state
     const [viewMode, setViewMode] = useState<ViewMode>('words');
@@ -67,6 +93,7 @@ export default function UploadScreen() {
     const [gallery, setGallery] = useState<GalleryItem[]>([]);
     const [galleryVisible, setGalleryVisible] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
+    const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
     // Translation card state
     const [selectedText, setSelectedText] = useState('');
@@ -87,6 +114,10 @@ export default function UploadScreen() {
 
     const navigation = useNavigation<NavigationProp>();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const requestLogin = () => {
+        showAlert('Giriş Gerekli', 'Bu işlem için lütfen giriş yapınız.');
+        setLoginModalVisible(true);
+    };
 
     // ── Gallery helpers ─────────────────────────────────────────────
     useEffect(() => {
@@ -128,9 +159,15 @@ export default function UploadScreen() {
     };
 
     const selectFromGallery = (item: GalleryItem) => {
-        setImageUri(item.base64);
-        setOcrData(item.ocrData);
-        setViewMode('words');
+        // Force re-mount of ImageOCRViewer even if same image is re-selected
+        setImageUri(null);
+        setOcrData([]);
+        setTimeout(() => {
+            setImageUri(item.base64);
+            setOcrData(item.ocrData);
+            setViewMode('words');
+            setZoomScale(1);
+        }, 0);
         setGalleryVisible(false);
     };
 
@@ -148,14 +185,15 @@ export default function UploadScreen() {
         if (!file) return;
         const uri = URL.createObjectURL(file);
         setImageUri(uri);
-        processImageWeb(file);
+        processImageWeb(file, uri);
         event.target.value = '';
     };
 
-    const processImageWeb = async (file: File) => {
+    const processImageWeb = async (file: File, uri: string) => {
         setLoading(true);
         setOcrData([]);
         setViewMode('words');
+        setZoomScale(1);
         try {
             const formData = new FormData();
             formData.append('file', file, file.name);
@@ -163,7 +201,7 @@ export default function UploadScreen() {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
             setOcrData(response.data);
-            if (imageUri) saveToGallery(imageUri, response.data);
+            await saveToGallery(uri, response.data);
         } catch {
             showToast('Görüntü işlenemedi. Backend loglarını kontrol et.', false);
         } finally {
@@ -187,6 +225,7 @@ export default function UploadScreen() {
         setLoading(true);
         setOcrData([]);
         setViewMode('words');
+        setZoomScale(1);
         try {
             const formData = new FormData();
             formData.append('file', { uri: asset.uri, name: 'upload.jpg', type: 'image/jpeg' } as any);
@@ -242,6 +281,11 @@ export default function UploadScreen() {
 
     // ── Add to Deck ────────────────────────────────────────────────
     const openDeckPicker = async (isSentence: boolean = false) => {
+        if (!user) {
+            requestLogin();
+            return;
+        }
+
         setFetchingDecks(true);
         if (isSentence) {
             setSentenceDeckPickerVisible(true);
@@ -305,11 +349,12 @@ export default function UploadScreen() {
             )}
 
             <View style={styles.header}>
-                {/* Hamburger Menu - Far Left */}
-                <View style={{ zIndex: 999 }}>
+                {/* Hamburger Menu & Profile - Far Left */}
+                <View style={{ zIndex: 999, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <TouchableOpacity style={styles.hamburgerBtn} onPress={() => setMenuOpen(!menuOpen)}>
                         <Text style={styles.hamburgerText}>☰</Text>
                     </TouchableOpacity>
+
                     {menuOpen && (
                         <View style={styles.dropdownMenu}>
                             <TouchableOpacity
@@ -327,29 +372,80 @@ export default function UploadScreen() {
                     <TouchableOpacity style={styles.headerBtn} onPress={pickImage}>
                         <Text style={styles.headerBtnText}>📷 Görsel Seç</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.headerBtn, styles.decksBtn]} onPress={() => navigation.navigate('Decks')}>
+                    <TouchableOpacity style={[styles.headerBtn, styles.decksBtn]} onPress={() => {
+                        if (!user) { Alert.alert('Erişim Engellendi', 'Bu işlem için lütfen giriş yapınız.'); return; }
+                        navigation.navigate('Decks');
+                    }}>
                         <Text style={styles.headerBtnText}>📚 Destelerim</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.headerBtn, styles.sentenceDecksBtn]} onPress={() => navigation.navigate('SentenceDecks')}>
+                    <TouchableOpacity style={[styles.headerBtn, styles.sentenceDecksBtn]} onPress={() => {
+                        if (!user) { Alert.alert('Erişim Engellendi', 'Bu işlem için lütfen giriş yapınız.'); return; }
+                        navigation.navigate('SentenceDecks');
+                    }}>
                         <Text style={styles.headerBtnText}>📚 Cümlelerim</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.headerBtn, styles.settingsBtn]} onPress={() => navigation.navigate('Settings')}>
+                    <TouchableOpacity style={[styles.headerBtn, styles.settingsBtn]} onPress={() => {
+                        if (!user) { requestLogin(); return; }
+                        navigation.navigate('Settings');
+                    }}>
                         <Text style={styles.headerBtnText}>⚙️ Ayarlar</Text>
                     </TouchableOpacity>
                 </View>
+            
+                {/* Profile Circle - Far Right */}
+                <View style={{ zIndex: 999, flexDirection: 'row', alignItems: 'center', gap: 8, position: 'relative' }}>
+                    <TouchableOpacity 
+                        style={styles.profileBtn} 
+                        onPress={() => {
+                            if (user) {
+                                setProfileMenuOpen(!profileMenuOpen);
+                            } else {
+                                setLoginModalVisible(true);
+                            }
+                        }}
+                    >
+                        <Text style={styles.profileText}>{user ? user.username.charAt(0).toUpperCase() : '?'}</Text>
+                    </TouchableOpacity>
+
+                    {profileMenuOpen && user && (
+                        <View style={[styles.dropdownMenu, { right: 0, left: 'auto', minWidth: 160 }]}>
+                            <TouchableOpacity
+                                style={styles.dropdownItem}
+                                onPress={() => { setProfileMenuOpen(false); navigation.navigate('ProfileDetails'); }}
+                            >
+                                <Text style={styles.dropdownItemText}>👤 Profil Ayrıntıları</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.dropdownItem}
+                                onPress={() => { setProfileMenuOpen(false); logout(); }}
+                            >
+                                <Text style={[styles.dropdownItemText, { color: '#E91429' }]}>🚪 Çıkış Yap</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                </View>
             </View>
 
-            {loading && <ActivityIndicator size="large" color="#1DB954" style={styles.loader} />}
+            {(!imageUri && loading) && <ActivityIndicator size="large" color="#1DB954" style={styles.loader} />}
 
-            {imageUri && !loading && (
-                <ImageOCRViewer
-                    imageUri={imageUri}
-                    ocrData={ocrData}
-                    onWordPress={handleTextPress}
-                    onSentencePress={handleSentencePress}
-                    viewMode={viewMode}
-                    onViewModeChange={setViewMode}
-                />
+            {imageUri && (
+                <View style={{ flex: 1 }}>
+                    <ImageOCRViewer
+                        imageUri={imageUri}
+                        ocrData={ocrData}
+                        onWordPress={handleTextPress}
+                        onSentencePress={handleSentencePress}
+                        viewMode={viewMode}
+                        onViewModeChange={setViewMode}
+                        zoomScale={zoomScale}
+                    />
+                    {loading && (
+                        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', zIndex: 10 }]}>
+                            <ActivityIndicator size="large" color="#1DB954" />
+                            <Text style={{ color: '#fff', marginTop: 12, fontWeight: 'bold', fontSize: 16 }}>Metinler taranıyor...</Text>
+                        </View>
+                    )}
+                </View>
             )}
 
             {!imageUri && !loading && (
@@ -596,6 +692,60 @@ export default function UploadScreen() {
                     </View>
                 </View>
             </Modal>
+            {/* ── Zoom Controls ────────────────────────────── */}
+            {/* ── Animated Floating Zoom Tools ──────────────────── */}
+            <View style={styles.floatingToolsContainer}>
+                {/* String 1 (+) */}
+                <Animated.View style={[styles.stringLine, {
+                    width: 92,
+                    transformOrigin: 'left' as any,
+                    transform: [{ rotate: '-119.3deg' }, { scaleX: animation }]
+                }]} />
+                
+                {/* String 2 (-) */}
+                <Animated.View style={[styles.stringLine, {
+                    width: 90,
+                    transformOrigin: 'left' as any,
+                    transform: [{ rotate: '-160.5deg' }, { scaleX: animation }]
+                }]} />
+
+                {/* Sat 1 (+) */}
+                <Animated.View style={[styles.satelliteBtnWrapper, { transform: [{ translateX: sat1X }, { translateY: sat1Y }, { scale: animation }] }]}>
+                    <TouchableOpacity
+                        style={[styles.zoomBtn, !imageUri && styles.zoomBtnDisabled]}
+                        disabled={!imageUri}
+                        onPress={() => setZoomScale(prev => prev + 0.25)}
+                    >
+                        <Text style={styles.zoomBtnText}>+</Text>
+                    </TouchableOpacity>
+                </Animated.View>
+
+                {/* Sat 2 (-) */}
+                <Animated.View style={[styles.satelliteBtnWrapper, { transform: [{ translateX: sat2X }, { translateY: sat2Y }, { scale: animation }] }]}>
+                    <TouchableOpacity
+                        style={[styles.zoomBtn, (!imageUri || zoomScale <= 1) && styles.zoomBtnDisabled]}
+                        disabled={!imageUri || zoomScale <= 1}
+                        onPress={() => setZoomScale(prev => Math.max(1, prev - 0.25))}
+                    >
+                        <Text style={styles.zoomBtnText}>-</Text>
+                    </TouchableOpacity>
+                </Animated.View>
+
+                {/* Main Tool Button */}
+                <TouchableOpacity style={styles.mainToolBtn} onPress={toggleTools} activeOpacity={0.8}>
+                    <Animated.Text style={[styles.mainToolBtnIcon, {
+                        transform: [{ rotate: animation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '90deg'] }) }]
+                    }]}>
+                        {toolsOpen ? '✖' : '🛠'}
+                    </Animated.Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* Auth Modal */}
+            <LoginModal 
+                visible={loginModalVisible} 
+                onClose={() => setLoginModalVisible(false)} 
+            />
         </View>
     );
 }
@@ -609,6 +759,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#333', alignItems: 'center', justifyContent: 'center',
     },
     hamburgerText: { fontSize: 20, color: '#fff' },
+    profileBtn: {
+        width: 40, height: 40, borderRadius: 20,
+        backgroundColor: '#1DB954', alignItems: 'center', justifyContent: 'center',
+        borderWidth: 2, borderColor: '#fff'
+    },
+    profileText: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
     dropdownMenu: {
         position: 'absolute', top: 46, left: 0,
         backgroundColor: '#282828', borderRadius: 12,
@@ -705,4 +861,70 @@ const styles = StyleSheet.create({
     },
     galleryThumb: { width: 130, height: 100, borderTopLeftRadius: 12, borderTopRightRadius: 12 },
     galleryDate: { color: '#aaa', fontSize: 11, textAlign: 'center', paddingVertical: 8 },
+
+    floatingToolsContainer: {
+        position: 'absolute',
+        bottom: 24,
+        right: 24,
+        width: 56,
+        height: 56,
+        zIndex: 200,
+    },
+    mainToolBtn: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#1DB954',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOpacity: 0.4,
+        shadowRadius: 6,
+        elevation: 6,
+        zIndex: 202,
+    },
+    mainToolBtnIcon: {
+        fontSize: 22,
+        color: '#fff',
+    },
+    satelliteBtnWrapper: {
+        position: 'absolute',
+        width: 48,
+        height: 48,
+        left: 4,
+        top: 4,
+        zIndex: 201,
+    },
+    zoomBtn: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#282828',
+        borderWidth: 1.5,
+        borderColor: '#1DB954',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 5,
+    },
+    zoomBtnDisabled: {
+        borderColor: '#535353',
+        backgroundColor: '#1a1a1a',
+    },
+    zoomBtnText: {
+        fontSize: 24,
+        color: '#fff',
+        fontWeight: 'bold',
+        lineHeight: 28,
+    },
+    stringLine: {
+        position: 'absolute',
+        height: 2,
+        backgroundColor: '#1DB954',
+        left: 28,
+        top: 27,
+        zIndex: 200,
+    },
 });

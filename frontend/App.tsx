@@ -11,7 +11,9 @@ import DashboardScreen from './src/screens/DashboardScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import SentenceDecksScreen from './src/screens/SentenceDecksScreen';
 import SentenceDeckDetailScreen from './src/screens/SentenceDeckDetailScreen';
+import ProfileDetailsScreen from './src/screens/ProfileDetailsScreen';
 import { RootStackParamList } from './src/types/navigation';
+import { AuthProvider } from './src/context/AuthContext';
 
 export type { RootStackParamList };
 
@@ -25,19 +27,22 @@ const darkHeader = {
 
 export default function App() {
     return (
-        <NavigationContainer>
-            <Stack.Navigator initialRouteName="Upload" screenOptions={darkHeader}>
-                <Stack.Screen name="Upload" component={UploadScreen} options={{ title: 'Read & Learn' }} />
-                <Stack.Screen name="Decks" component={DecksScreen} options={{ title: 'Destelerim' }} />
-                <Stack.Screen name="DeckDetail" component={DeckDetailScreen} options={({ route }) => ({ title: route.params.deckName })} />
-                <Stack.Screen name="SentenceDecks" component={SentenceDecksScreen} options={{ title: 'Cümlelerim' }} />
-                <Stack.Screen name="SentenceDeckDetail" component={SentenceDeckDetailScreen} options={({ route }) => ({ title: route.params.deckName })} />
-                <Stack.Screen name="QuizMode" component={QuizModeScreen} options={{ title: 'Quiz Modu' }} />
-                <Stack.Screen name="Quiz" component={QuizScreen} options={{ title: 'Quiz', headerBackVisible: false }} />
-                <Stack.Screen name="QuizResult" component={QuizResultScreen} options={{ title: 'Sonuçlar', headerBackVisible: false }} />
-                <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'İlerleme Paneli' }} />
-                <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Ayarlar' }} />
-            </Stack.Navigator>
-        </NavigationContainer>
+        <AuthProvider>
+            <NavigationContainer>
+                <Stack.Navigator initialRouteName="Upload" screenOptions={darkHeader}>
+                    <Stack.Screen name="Upload" component={UploadScreen} options={{ title: 'Read & Learn' }} />
+                    <Stack.Screen name="Decks" component={DecksScreen} options={{ title: 'Destelerim' }} />
+                    <Stack.Screen name="DeckDetail" component={DeckDetailScreen} options={({ route }) => ({ title: route.params.deckName })} />
+                    <Stack.Screen name="SentenceDecks" component={SentenceDecksScreen} options={{ title: 'Cümlelerim' }} />
+                    <Stack.Screen name="SentenceDeckDetail" component={SentenceDeckDetailScreen} options={({ route }) => ({ title: route.params.deckName })} />
+                    <Stack.Screen name="QuizMode" component={QuizModeScreen} options={{ title: 'Quiz Modu' }} />
+                    <Stack.Screen name="Quiz" component={QuizScreen} options={{ title: 'Quiz', headerBackVisible: false }} />
+                    <Stack.Screen name="QuizResult" component={QuizResultScreen} options={{ title: 'Sonuçlar', headerBackVisible: false }} />
+                    <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'İlerleme Paneli' }} />
+                    <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Ayarlar' }} />
+                    <Stack.Screen name="ProfileDetails" component={ProfileDetailsScreen} options={{ title: 'Profil Ayrıntıları' }} />
+                </Stack.Navigator>
+            </NavigationContainer>
+        </AuthProvider>
     );
 }

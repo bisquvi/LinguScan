@@ -53,7 +53,9 @@ async def get_translation_and_meaning(text: str, is_word: bool = False):
                     "options": {
                         "temperature": 0.2,
                         "top_p": 0.9,
-                        "repeat_penalty": 1.1
+                        "repeat_penalty": 1.1,
+                        "num_ctx": 1024,
+                        "num_predict": 256
                     }
                 },
                 timeout=60.0 # Generation might take a while on CPU
@@ -144,7 +146,9 @@ async def get_meaning_and_example(text: str, is_word: bool = False):
                     "options": {
                         "temperature": 0.2,
                         "top_p": 0.9,
-                        "repeat_penalty": 1.1
+                        "repeat_penalty": 1.1,
+                        "num_ctx": 1024,
+                        "num_predict": 256
                     }
                 },
                 timeout=60.0

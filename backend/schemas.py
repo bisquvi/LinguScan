@@ -117,6 +117,24 @@ class QuizReviewRequest(BaseModel):
     rating: str
     is_correct: bool
 
+class UserRegister(BaseModel):
+    username: str
+    password: str
+
+class UserUpdate(BaseModel):
+    username: str
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    token: Optional[str] = None
+    class Config:
+        from_attributes = True
+
 class MultipleChoiceCard(BaseModel):
     card_id: int
     question: str

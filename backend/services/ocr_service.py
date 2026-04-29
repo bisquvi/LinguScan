@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import re
 
-reader = easyocr.Reader(['en'], gpu=False)
+reader = easyocr.Reader(['en'])
 
 _PUNCT_ONLY = re.compile(r'^[\W_]+$')
 

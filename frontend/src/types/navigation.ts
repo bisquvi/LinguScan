@@ -9,4 +9,5 @@ export type RootStackParamList = {
     QuizResult: { result: any };
     Dashboard: undefined;
     Settings: undefined;
+    ProfileDetails: undefined;
 };
