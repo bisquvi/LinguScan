@@ -1,26 +1,17 @@
 import React, { useState, useCallback } from 'react';
-import {
-    View, Text, FlatList, TouchableOpacity, StyleSheet,
-    ActivityIndicator, Modal, TextInput
-} from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { apiClient } from '../api/client';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { confirmAction, showAlert } from '../utils/alert';
+import { colors, radius, spacing, typography } from '../theme';
+import { motion } from 'framer-motion';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'SentenceDecks'>;
-
-interface SentenceDeck {
-    id: number;
-    name: string;
-    cards: any[];
-}
-
-const COVER_COLORS = [
-    '#1DB954', '#E91429', '#2D46B9', '#BC5900',
-    '#7B5EA7', '#0D73EC', '#E8115B', '#148A08',
-];
+interface SentenceDeck { id: number; name: string; cards: any[]; }
+const COVER_COLORS = colors.covers;
+const Mv = motion.div as any;
 
 export default function SentenceDecksScreen() {
     const [decks, setDecks] = useState<SentenceDeck[]>([]);
@@ -30,22 +21,12 @@ export default function SentenceDecksScreen() {
     const [creating, setCreating] = useState(false);
     const navigation = useNavigation<NavigationProp>();
 
-    useFocusEffect(
-        useCallback(() => {
-            fetchDecks();
-        }, [])
-    );
+    useFocusEffect(useCallback(() => { fetchDecks(); }, []));
 
     const fetchDecks = async () => {
         setLoading(true);
-        try {
-            const resp = await apiClient.get('/sentences/decks/');
-            setDecks(resp.data);
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
+        try { const resp = await apiClient.get('/sentences/decks/'); setDecks(resp.data); }
+        catch (e) { console.error(e); } finally { setLoading(false); }
     };
 
     const createDeck = async () => {
@@ -53,185 +34,124 @@ export default function SentenceDecksScreen() {
         setCreating(true);
         try {
             await apiClient.post('/sentences/decks/', { name: newDeckName.trim() });
-            setNewDeckName('');
-            setCreateVisible(false);
-            await fetchDecks();
-        } catch {
-            showAlert('Hata', 'Cümle destesi oluşturulamadı. Lütfen tekrar deneyin.');
-        } finally {
-            setCreating(false);
-        }
+            setNewDeckName(''); setCreateVisible(false); await fetchDecks();
+        } catch { showAlert('Hata', 'Cümle destesi oluşturulamadı.'); } finally { setCreating(false); }
     };
 
-    const deleteDeck = (deck: SentenceDeck) => {
-        confirmAction(
-            'Desteyi Sil',
-            `"${deck.name}" silinsin mi? Bu işlem geri alınamaz.`,
-            async () => {
-                try {
-                    await apiClient.delete(`/sentences/decks/${deck.id}`);
-                    setDecks(prev => prev.filter(d => d.id !== deck.id));
-                } catch (err: any) {
-                    showAlert('Hata', `Deste silinemedi: ${err?.message ?? 'Bilinmeyen hata'}`);
-                }
-            },
-            'Sil'
-        );
-    };
+    const deleteDeck = (deck: SentenceDeck) => confirmAction('Desteyi Sil', `"${deck.name}" silinsin mi?`, async () => {
+        try { await apiClient.delete(`/sentences/decks/${deck.id}`); setDecks(prev => prev.filter(d => d.id !== deck.id)); }
+        catch (err: any) { showAlert('Hata', `Silinemedi: ${err?.message ?? '?'}`); }
+    }, 'Sil');
 
     const renderItem = ({ item, index }: { item: SentenceDeck; index: number }) => {
         const color = COVER_COLORS[index % COVER_COLORS.length];
         return (
-            <View style={styles.deckCard}>
-                <TouchableOpacity
-                    style={styles.deckCardInner}
-                    onPress={() => navigation.navigate('SentenceDeckDetail', { deckId: item.id, deckName: item.name })}
-                    activeOpacity={0.75}
-                >
-                    <View style={[styles.deckCover, { backgroundColor: color }]}>
-                        <Text style={styles.deckInitial}>{item.name.charAt(0).toUpperCase()}</Text>
+            <Mv initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.28, delay: index * 0.05 }}
+                whileHover={{ y: -2, boxShadow: '0 8px 32px rgba(0,0,0,0.45)' }}
+                style={s.card}>
+                <TouchableOpacity style={s.cardInner} onPress={() => navigation.navigate('SentenceDeckDetail', { deckId: item.id, deckName: item.name })} activeOpacity={0.8}>
+                    <View style={[s.cover, { backgroundColor: color }]}>
+                        <Text style={s.initial}>{item.name.charAt(0).toUpperCase()}</Text>
                     </View>
-
-                    <View style={styles.deckInfo}>
-                        <Text style={styles.deckName} numberOfLines={1}>{item.name}</Text>
-                        <Text style={styles.cardCount}>{item.cards?.length || 0} cümle</Text>
+                    <View style={s.info}>
+                        <Text style={s.deckName} numberOfLines={1}>{item.name}</Text>
+                        <Text style={s.cardCount}>{item.cards?.length || 0} cümle</Text>
                     </View>
                 </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[styles.actionBtn, styles.deleteBtn]}
-                    onPress={() => deleteDeck(item)}
-                >
-                    <Text style={styles.actionBtnText}>🗑</Text>
+                                <TouchableOpacity style={s.delBtn} onPress={() => deleteDeck(item)}>
+                    <Text style={{ fontSize: 18, color: colors.danger }}>✕</Text>
                 </TouchableOpacity>
-            </View>
+            </Mv>
         );
     };
 
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>📚 Cümlelerim</Text>
-                <TouchableOpacity style={styles.createBtn} onPress={() => setCreateVisible(true)}>
-                    <Text style={styles.createBtnText}>+ Yeni Deste</Text>
-                </TouchableOpacity>
+        <View style={s.container}>
+            <View style={s.header}>
+                <View>
+                    <Text style={s.headerTitle}>Cümlelerim</Text>
+                    <Text style={s.headerSub}>{decks.length} deste</Text>
+                </View>
+                <Mv whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
+                    <TouchableOpacity style={s.newBtn} onPress={() => setCreateVisible(true)}>
+                        <Text style={s.newBtnTxt}>+ Yeni Deste</Text>
+                    </TouchableOpacity>
+                </Mv>
             </View>
 
             {loading ? (
-                <ActivityIndicator size="large" color="#1DB954" style={{ marginTop: 60 }} />
+                <View style={s.center}>
+                    <Mv animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }} style={s.spinner} />
+                </View>
             ) : decks.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyEmoji}>📭</Text>
-                    <Text style={styles.emptyTitle}>Henüz cümle destesi yok</Text>
-                    <Text style={styles.emptyText}>
-                        Yukarıdaki "+ Yeni Deste" butonuna tıklayarak ilk desteni oluştur.
-                    </Text>
-                    <TouchableOpacity style={styles.emptyCreateBtn} onPress={() => setCreateVisible(true)}>
-                        <Text style={styles.emptyCreateBtnText}>+ İlk Destemi Oluştur</Text>
-                    </TouchableOpacity>
+                <View style={s.empty}>
+                    <Text style={{ fontSize: 64, marginBottom: 16 }}>📝</Text>
+                    <Text style={s.emptyTitle}>Henüz cümle destesi yok</Text>
+                    <Text style={s.emptyText}>İlk cümle desteni oluştur!</Text>
+                    <Mv whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} style={{ marginTop: 24 }}>
+                        <TouchableOpacity style={s.emptyBtn} onPress={() => setCreateVisible(true)}>
+                            <Text style={s.emptyBtnTxt}>+ İlk Destemi Oluştur</Text>
+                        </TouchableOpacity>
+                    </Mv>
                 </View>
             ) : (
-                <FlatList
-                    data={decks}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={renderItem}
-                    contentContainerStyle={{ padding: 15, paddingBottom: 100 }}
-                />
+                <FlatList data={decks} keyExtractor={i => i.id.toString()} renderItem={renderItem}
+                    contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false} />
             )}
 
-            <Modal visible={createVisible} transparent animationType="slide">
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Yeni Cümle Destesi</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Deste adı (örn. Roman Sözleri)"
-                            value={newDeckName}
-                            onChangeText={setNewDeckName}
-                            autoFocus
-                            onSubmitEditing={createDeck}
-                        />
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity
-                                style={[styles.modalBtn, styles.cancelBtn]}
-                                onPress={() => { setCreateVisible(false); setNewDeckName(''); }}
-                            >
-                                <Text style={styles.modalBtnText}>İptal</Text>
+            <Modal visible={createVisible} transparent animationType="fade">
+                <View style={s.overlay}>
+                    <Mv initial={{ opacity: 0, scale: 0.92, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+                        transition={{ type: 'spring', stiffness: 320, damping: 26 }} style={s.modal}>
+                        <Text style={s.modalTitle}>Yeni Cümle Destesi</Text>
+                        <TextInput style={s.input} placeholder="Deste adı (örn. Roman Sözleri)" placeholderTextColor={colors.textMuted}
+                            value={newDeckName} onChangeText={setNewDeckName} autoFocus onSubmitEditing={createDeck} />
+                        <View style={s.btnRow}>
+                            <TouchableOpacity style={s.cancelBtn} onPress={() => { setCreateVisible(false); setNewDeckName(''); }}>
+                                <Text style={s.cancelTxt}>İptal</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.modalBtn, styles.confirmBtn, !newDeckName.trim() && styles.disabledBtn]}
-                                onPress={createDeck}
-                                disabled={!newDeckName.trim() || creating}
-                            >
-                                {creating
-                                    ? <ActivityIndicator color="#fff" size="small" />
-                                    : <Text style={styles.modalBtnText}>Oluştur</Text>
-                                }
+                            <TouchableOpacity style={[s.confirmBtn, !newDeckName.trim() && s.disabled]} onPress={createDeck} disabled={!newDeckName.trim() || creating}>
+                                {creating ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.confirmTxt}>Oluştur</Text>}
                             </TouchableOpacity>
                         </View>
-                    </View>
+                    </Mv>
                 </View>
             </Modal>
         </View>
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#121212' },
-    header: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        padding: 20, paddingTop: 30, backgroundColor: '#121212'
-    },
-    headerTitle: { fontSize: 26, fontWeight: 'bold', color: '#fff' },
-    createBtn: { backgroundColor: '#1DB954', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20 },
-    createBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
-
-    deckCard: {
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: '#282828', borderRadius: 8,
-        marginBottom: 12,
-        overflow: 'hidden',
-    },
-    deckCardInner: {
-        flex: 1, flexDirection: 'row', alignItems: 'center',
-        padding: 12,
-    },
-    deckCover: {
-        width: 56, height: 56, borderRadius: 6,
-        justifyContent: 'center', alignItems: 'center', marginRight: 14
-    },
-    deckInitial: { fontSize: 26, fontWeight: 'bold', color: '#fff' },
-    deckInfo: { flex: 1 },
-    deckName: { fontSize: 16, fontWeight: 'bold', color: '#fff' },
-    cardCount: { fontSize: 12, color: '#b3b3b3', marginTop: 3 },
-    actionBtn: { paddingVertical: 14, paddingHorizontal: 16 },
-    actionBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-    deleteBtn: { backgroundColor: '#E91429' },
-
-    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
-    emptyEmoji: { fontSize: 60, marginBottom: 16 },
-    emptyTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 10 },
-    emptyText: { fontSize: 14, color: '#b3b3b3', textAlign: 'center', lineHeight: 22 },
-    emptyCreateBtn: {
-        marginTop: 28, backgroundColor: '#1DB954',
-        paddingVertical: 14, paddingHorizontal: 32, borderRadius: 30
-    },
-    emptyCreateBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-    modalContent: {
-        backgroundColor: '#282828', borderTopLeftRadius: 20, borderTopRightRadius: 20,
-        padding: 28
-    },
-    modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff', marginBottom: 18 },
-    input: {
-        backgroundColor: '#404040', borderRadius: 8, padding: 14,
-        fontSize: 16, color: '#fff', marginBottom: 20
-    },
-    modalButtons: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-    modalBtn: { flex: 1, paddingVertical: 14, borderRadius: 8, alignItems: 'center' },
-    cancelBtn: { backgroundColor: '#535353' },
-    confirmBtn: { backgroundColor: '#1DB954' },
-    disabledBtn: { opacity: 0.4 },
-    modalBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+const s = StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bg },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    spinner: { width: 36, height: 36, borderRadius: 18, border: `3px solid ${colors.primaryDim}`, borderTopColor: colors.primary } as any,
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.lg, paddingTop: spacing.xl },
+    headerTitle: { ...typography.h1 },
+    headerSub: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
+    newBtn: { backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 18, borderRadius: radius.full, boxShadow: `0 4px 16px ${colors.primary}40` } as any,
+    newBtnTxt: { color: colors.bg, fontWeight: '700', fontSize: 13 } as any,
+    card: { display: 'flex', flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.lg, marginBottom: 12, overflow: 'hidden', cursor: 'pointer', border: `1px solid ${colors.border}` } as any,
+    cardInner: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 14 },
+    cover: { width: 52, height: 52, borderRadius: radius.md, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+    initial: { fontSize: 24, fontWeight: '800', color: '#fff' } as any,
+    info: { flex: 1 },
+    deckName: { ...typography.bodyBold, marginBottom: 3 },
+    cardCount: { ...typography.caption },
+    delBtn: { paddingVertical: 16, paddingHorizontal: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' } as any,
+    empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
+    emptyTitle: { ...typography.h2, marginBottom: 8 },
+    emptyText: { ...typography.body, color: colors.textMuted, textAlign: 'center' } as any,
+    emptyBtn: { backgroundColor: colors.primary, paddingVertical: 14, paddingHorizontal: 32, borderRadius: radius.full } as any,
+    emptyBtnTxt: { color: colors.bg, fontWeight: '700', fontSize: 15 } as any,
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: spacing.lg },
+    modal: { display: 'flex', flexDirection: 'column', boxSizing: 'border-box', backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, width: '100%', maxWidth: 480, border: `1px solid ${colors.border}`, boxShadow: '0 24px 64px rgba(0,0,0,0.6)' } as any,
+    modalTitle: { ...typography.h2, marginBottom: 20 },
+    input: { backgroundColor: colors.surfaceHigh, borderRadius: radius.md, padding: 14, fontSize: 15, color: colors.textPrimary, marginBottom: 20, border: `1px solid ${colors.border}`, fontFamily: 'inherit' } as any,
+    btnRow: { flexDirection: 'row', gap: 12 } as any,
+    cancelBtn: { flex: 1, paddingVertical: 13, borderRadius: radius.md, alignItems: 'center', backgroundColor: colors.surfaceHigh, border: `1px solid ${colors.border}` } as any,
+    cancelTxt: { ...typography.bodyBold, color: colors.textSecondary },
+    confirmBtn: { flex: 1, paddingVertical: 13, borderRadius: radius.md, alignItems: 'center', backgroundColor: colors.primary } as any,
+    disabled: { opacity: 0.4 },
+    confirmTxt: { color: colors.bg, fontWeight: '700', fontSize: 15 } as any,
 });

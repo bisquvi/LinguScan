@@ -1,4 +1,5 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
+import { colors, radius } from '../theme';
 import {
     View, Text, StyleSheet, ActivityIndicator,
     Modal, TouchableOpacity, Platform, FlatList, ScrollView, Image, Animated, Alert
@@ -44,9 +45,9 @@ function HighlightedSentence({ sentence, highlight }: { sentence: string; highli
         </Text>
     );
 }
-const exampleSentenceStyle = { fontSize: 14, color: '#e0e0e0', lineHeight: 22, flexWrap: 'wrap' as const };
-const highlightStyle = { color: '#1DB954', fontWeight: 'bold' as const };
-const plainTokenStyle = { color: '#e0e0e0' };
+const exampleSentenceStyle = { fontSize: 14, color: '#EAE6BC', lineHeight: 22, flexWrap: 'wrap' as const };
+const highlightStyle = { color: '#B5E18B', fontWeight: 'bold' as const };
+const plainTokenStyle = { color: '#EAE6BC' };
 
 interface Deck { id: number; name: string; }
 
@@ -55,8 +56,8 @@ interface Toast { message: string; success: boolean; }
 
 // Cover colors mirrored from DecksScreen
 const COVER_COLORS = [
-    '#1DB954', '#E91429', '#2D46B9', '#BC5900',
-    '#7B5EA7', '#0D73EC', '#E8115B', '#148A08',
+    '#FF6B35', '#5B8CFF', '#3DD68C', '#A78BFA',
+    '#FFB347', '#4ECDC4', '#FF6B9D', '#50E3C2',
 ];
 
 export default function UploadScreen() {
@@ -751,72 +752,72 @@ export default function UploadScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#121212' },
-    header: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, backgroundColor: '#1a1a1a', zIndex: 100 },
+    container: { flex: 1, backgroundColor: colors.bg },
+    header: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, backgroundColor: colors.surface, zIndex: 100, borderBottomWidth: 1, borderBottomColor: colors.border },
     headerBtns: { flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 10, flexWrap: 'wrap' },
     hamburgerBtn: {
-        width: 40, height: 40, borderRadius: 10,
-        backgroundColor: '#333', alignItems: 'center', justifyContent: 'center',
+        width: 40, height: 40, borderRadius: radius.md,
+        backgroundColor: colors.surfaceHigh, alignItems: 'center', justifyContent: 'center',
     },
-    hamburgerText: { fontSize: 20, color: '#fff' },
+    hamburgerText: { fontSize: 20, color: colors.textPrimary },
     profileBtn: {
         width: 40, height: 40, borderRadius: 20,
-        backgroundColor: '#1DB954', alignItems: 'center', justifyContent: 'center',
-        borderWidth: 2, borderColor: '#fff'
+        backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
+        borderWidth: 0,
     },
-    profileText: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
+    profileText: { fontSize: 16, fontWeight: '800', color: '#fff' },
     dropdownMenu: {
         position: 'absolute', top: 46, left: 0,
-        backgroundColor: '#282828', borderRadius: 12,
-        paddingVertical: 6, minWidth: 140,
-        shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
-        zIndex: 999, elevation: 10,
-        borderWidth: 1, borderColor: '#3a3a3a',
+        backgroundColor: colors.surface, borderRadius: radius.lg,
+        paddingVertical: 6, minWidth: 160,
+        shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 6 },
+        zIndex: 999, elevation: 12,
+        borderWidth: 1, borderColor: colors.border,
     },
-    dropdownItem: { paddingVertical: 12, paddingHorizontal: 16 },
-    dropdownItemText: { color: '#fff', fontSize: 15, fontWeight: '500' },
-    headerBtn: { backgroundColor: '#1DB954', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20 },
-    decksBtn: { backgroundColor: '#2D46B9' },
-    sentenceDecksBtn: { backgroundColor: '#7B5EA7' },
-    settingsBtn: { backgroundColor: '#535353' },
-    headerBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
+    dropdownItem: { paddingVertical: 13, paddingHorizontal: 16 },
+    dropdownItemText: { color: colors.textPrimary, fontSize: 15, fontWeight: '600' },
+    headerBtn: { backgroundColor: colors.primary, paddingVertical: 9, paddingHorizontal: 15, borderRadius: radius.full },
+    decksBtn: { backgroundColor: '#4A6FA8' },
+    sentenceDecksBtn: { backgroundColor: '#5A8A7A' },
+    settingsBtn: { backgroundColor: colors.surfaceHigh },
+    headerBtnText: { color: colors.bg, fontWeight: '700', fontSize: 13 },
     loader: { marginTop: 60 },
     placeholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    placeholderEmoji: { fontSize: 64, marginBottom: 16 },
-    placeholderText: { fontSize: 16, color: '#b3b3b3', textAlign: 'center' },
+    placeholderEmoji: { fontSize: 72, marginBottom: 20 },
+    placeholderText: { fontSize: 16, color: colors.textMuted, textAlign: 'center' },
 
     toast: {
         position: 'absolute', bottom: 40, left: 20, right: 20,
-        padding: 16, borderRadius: 12, zIndex: 9999,
-        shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8,
+        padding: 16, borderRadius: radius.lg, zIndex: 9999,
+        shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 12,
     },
-    toastSuccess: { backgroundColor: '#1DB954' },
-    toastError: { backgroundColor: '#E91429' },
-    toastText: { color: '#fff', fontWeight: 'bold', fontSize: 14, textAlign: 'center' },
+    toastSuccess: { backgroundColor: colors.success },
+    toastError: { backgroundColor: colors.danger },
+    toastText: { color: '#fff', fontWeight: '700', fontSize: 14, textAlign: 'center' },
 
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
-    modalContent: { backgroundColor: '#282828', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 28, position: 'relative' as const },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
+    modalContent: { backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: 28, position: 'relative' as const },
     providerBadge: {
         position: 'absolute' as const, top: 12, right: 16,
-        fontSize: 10, color: '#666', fontWeight: '500' as const,
-        letterSpacing: 0.5, textTransform: 'uppercase' as const,
+        fontSize: 10, color: colors.textMuted, fontWeight: '600' as const,
+        letterSpacing: 0.8, textTransform: 'uppercase' as const,
     },
-    modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 16 },
-    originalText: { fontSize: 20, fontWeight: 'bold', marginBottom: 16, color: '#fff' },
-    translationBox: { backgroundColor: '#1a1a1a', padding: 16, borderRadius: 12, marginBottom: 20 },
-    translationText: { fontSize: 20, color: '#1DB954', fontWeight: 'bold' },
-    meaningText: { fontSize: 13, color: '#b3b3b3', marginTop: 10, fontStyle: 'italic' },
-    exampleContainer: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#2e2e2e' },
-    exampleLabel: { fontSize: 11, color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.8 },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: 16 },
+    originalText: { fontSize: 20, fontWeight: '800', marginBottom: 16, color: colors.textPrimary },
+    translationBox: { backgroundColor: colors.surfaceHigh, padding: 16, borderRadius: radius.md, marginBottom: 20 },
+    translationText: { fontSize: 20, color: colors.primary, fontWeight: '700' },
+    meaningText: { fontSize: 13, color: colors.textSecondary, marginTop: 10, fontStyle: 'italic' },
+    exampleContainer: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border },
+    exampleLabel: { fontSize: 11, color: colors.textMuted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.8 },
     modalButtons: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-    btn: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
-    addBtn: { backgroundColor: '#1DB954' },
-    closeBtn: { backgroundColor: '#535353' },
-    btnText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+    btn: { flex: 1, paddingVertical: 14, borderRadius: radius.md, alignItems: 'center' },
+    addBtn: { backgroundColor: colors.primary },
+    closeBtn: { backgroundColor: colors.surfaceHigh },
+    btnText: { color: colors.bg, fontWeight: '700', fontSize: 15 },
 
-    sentenceModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', flexDirection: 'row', justifyContent: 'flex-end' },
+    sentenceModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', flexDirection: 'row', justifyContent: 'flex-end' },
     sentenceModalContent: {
-        backgroundColor: '#1a1a1a',
+        backgroundColor: colors.surface,
         width: Platform.OS === 'web' ? 450 : '85%',
         height: '100%',
         paddingHorizontal: 28,
@@ -828,39 +829,40 @@ const styles = StyleSheet.create({
     sentenceTextContainer: { flex: 1, marginVertical: 10 },
     sentenceOriginalScroll: { flex: 1, marginBottom: 10 },
     sentenceTranslationScroll: { flex: 1 },
-    sentenceOriginalText: { fontSize: 24, fontWeight: 'bold', color: '#fff', lineHeight: 34 },
-    sentenceTranslationBox: { backgroundColor: '#282828', padding: 24, borderRadius: 16, marginBottom: 10 },
-    sentenceTranslationText: { fontSize: 22, color: '#1DB954', fontWeight: 'bold', lineHeight: 32 },
+    sentenceOriginalText: { fontSize: 22, fontWeight: '800', color: colors.textPrimary, lineHeight: 32 },
+    sentenceTranslationBox: { backgroundColor: colors.surfaceHigh, padding: 22, borderRadius: radius.lg, marginBottom: 10 },
+    sentenceTranslationText: { fontSize: 20, color: colors.primary, fontWeight: '700', lineHeight: 30 },
 
     noDeckContainer: { alignItems: 'center', paddingVertical: 16 },
-    noDeckText: { color: '#b3b3b3', textAlign: 'center', fontSize: 15, lineHeight: 24 },
+    noDeckText: { color: colors.textSecondary, textAlign: 'center', fontSize: 15, lineHeight: 24 },
     deckOption: {
         flexDirection: 'row', alignItems: 'center',
-        paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#404040'
+        paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border
     },
-    deckDot: { width: 14, height: 14, borderRadius: 7, marginRight: 14 },
-    deckOptionText: { flex: 1, fontSize: 16, color: '#fff', fontWeight: '500' },
+    deckDot: { width: 12, height: 12, borderRadius: 6, marginRight: 14 },
+    deckOptionText: { flex: 1, fontSize: 16, color: colors.textPrimary, fontWeight: '600' },
 
     // Gallery styles
-    galleryOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center' },
+    galleryOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
     galleryContent: {
-        backgroundColor: '#1a1a1a', borderRadius: 20, padding: 28,
-        width: Platform.OS === 'web' ? 500 : '90%',
+        backgroundColor: colors.surface, borderRadius: radius.xl, padding: 28,
+        width: Platform.OS === 'web' ? 520 : '90%',
         maxHeight: '80%',
+        borderWidth: 1, borderColor: colors.border,
     },
-    galleryTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 4 },
-    gallerySubtitle: { fontSize: 13, color: '#888', marginBottom: 20 },
+    galleryTitle: { fontSize: 22, fontWeight: '800', color: colors.textPrimary, marginBottom: 4 },
+    gallerySubtitle: { fontSize: 13, color: colors.textMuted, marginBottom: 20 },
     galleryEmpty: { paddingVertical: 40, alignItems: 'center' },
-    galleryEmptyText: { color: '#666', fontSize: 15 },
+    galleryEmptyText: { color: colors.textMuted, fontSize: 15 },
     galleryGrid: {
         flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center',
     },
     galleryItem: {
-        width: 130, borderRadius: 12, overflow: 'hidden',
-        backgroundColor: '#282828', borderWidth: 1, borderColor: '#333',
+        width: 130, borderRadius: radius.md, overflow: 'hidden',
+        backgroundColor: colors.surfaceHigh, borderWidth: 1, borderColor: colors.border,
     },
-    galleryThumb: { width: 130, height: 100, borderTopLeftRadius: 12, borderTopRightRadius: 12 },
-    galleryDate: { color: '#aaa', fontSize: 11, textAlign: 'center', paddingVertical: 8 },
+    galleryThumb: { width: 130, height: 100, borderTopLeftRadius: radius.md, borderTopRightRadius: radius.md },
+    galleryDate: { color: colors.textMuted, fontSize: 11, textAlign: 'center', paddingVertical: 8 },
 
     floatingToolsContainer: {
         position: 'absolute',
@@ -874,13 +876,13 @@ const styles = StyleSheet.create({
         width: 56,
         height: 56,
         borderRadius: 28,
-        backgroundColor: '#1DB954',
+        backgroundColor: colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: '#000',
-        shadowOpacity: 0.4,
-        shadowRadius: 6,
-        elevation: 6,
+        shadowOpacity: 0.45,
+        shadowRadius: 8,
+        elevation: 8,
         zIndex: 202,
     },
     mainToolBtnIcon: {
@@ -899,9 +901,9 @@ const styles = StyleSheet.create({
         width: 48,
         height: 48,
         borderRadius: 24,
-        backgroundColor: '#282828',
+        backgroundColor: colors.surfaceHigh,
         borderWidth: 1.5,
-        borderColor: '#1DB954',
+        borderColor: colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: '#000',
@@ -910,8 +912,8 @@ const styles = StyleSheet.create({
         elevation: 5,
     },
     zoomBtnDisabled: {
-        borderColor: '#535353',
-        backgroundColor: '#1a1a1a',
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
     },
     zoomBtnText: {
         fontSize: 24,
@@ -922,7 +924,7 @@ const styles = StyleSheet.create({
     stringLine: {
         position: 'absolute',
         height: 2,
-        backgroundColor: '#1DB954',
+        backgroundColor: colors.primary,
         left: 28,
         top: 27,
         zIndex: 200,

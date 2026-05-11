@@ -1,7 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { apiClient } from '../api/client';
+import { colors, radius, spacing, typography } from '../theme';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
 
 interface DashboardData {
     total_cards: number;
@@ -14,6 +17,8 @@ interface DashboardData {
     most_difficult_cards: { id: number; front: string; back: string }[];
     best_known_cards: { id: number; front: string; back: string }[];
 }
+
+const MotionView = motion.div as any;
 
 export default function DashboardScreen() {
     const [data, setData] = useState<DashboardData | null>(null);
@@ -33,111 +38,312 @@ export default function DashboardScreen() {
 
     useFocusEffect(useCallback(() => { fetchDashboard(); }, []));
 
-    if (loading) return <ActivityIndicator size="large" color="#1DB954" style={{ marginTop: 60 }} />;
-    if (!data) return <View style={s.container}><Text style={s.noData}>Veri yüklenemedi.</Text></View>;
+    if (loading) return (
+        <View style={s.loadingContainer}>
+            <MotionView
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                style={{ width: 40, height: 40, borderRadius: 20, border: `3px solid ${colors.primaryDim}`, borderTopColor: colors.primary }}
+            />
+            <Text style={[typography.caption, { marginTop: 12 }]}>Yükleniyor...</Text>
+        </View>
+    );
+
+    if (!data) return (
+        <View style={s.container}>
+            <Text style={{ ...typography.body, color: colors.textMuted, textAlign: 'center' }}>
+                Veri yüklenemedi.
+            </Text>
+        </View>
+    );
+
+    const successRate = data.overall_success_rate ?? 0;
+    const rateColor = successRate >= 70 ? colors.success : successRate >= 40 ? colors.warning : colors.danger;
 
     return (
-        <ScrollView contentContainerStyle={s.container}>
-            <Text style={s.title}>📊 İlerleme Paneli</Text>
+        <ScrollView contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
+            {/* Header */}
+            <MotionView
+                initial={{ opacity: 0, y: -16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+                style={s.header}
+            >
+                <Text style={s.headerEmoji}>📊</Text>
+                <View>
+                    <Text style={s.headerTitle}>İlerleme Paneli</Text>
+                    <Text style={s.headerSub}>Öğrenme yolculuğuna bak</Text>
+                </View>
+            </MotionView>
 
-            {/* Card level breakdown */}
+            {/* XP / Success Rate Hero Card */}
+            <MotionView
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.4, delay: 0.1 }}
+                style={s.heroCard}
+            >
+                <Text style={s.heroLabel}>GENEL BAŞARI ORANI</Text>
+                <Text style={[s.heroValue, { color: rateColor }]}>
+                    %{successRate.toFixed(1)}
+                </Text>
+                {/* Animated progress bar */}
+                <View style={s.progressTrack}>
+                    <MotionView
+                        initial={{ width: '0%' }}
+                        animate={{ width: `${Math.min(successRate, 100)}%` }}
+                        transition={{ duration: 1, delay: 0.4, ease: 'easeOut' }}
+                        style={{
+                            height: 8,
+                            borderRadius: radius.full,
+                            backgroundColor: rateColor,
+                        }}
+                    />
+                </View>
+                <View style={s.heroStats}>
+                    <View style={s.heroStatItem}>
+                        <Text style={[s.heroStatValue, { color: colors.textPrimary }]}>{data.total_cards}</Text>
+                        <Text style={s.heroStatLabel}>Toplam Kart</Text>
+                    </View>
+                    <View style={s.heroStatDivider} />
+                    <View style={s.heroStatItem}>
+                        <Text style={[s.heroStatValue, { color: colors.primary }]}>{data.total_quizzes}</Text>
+                        <Text style={s.heroStatLabel}>Toplam Quiz</Text>
+                    </View>
+                </View>
+            </MotionView>
+
+            {/* Card Status Grid */}
             <Text style={s.sectionTitle}>Kart Durumları</Text>
-            <View style={s.row}>
-                <LevelBox label="Yeni" value={data.new_cards} color="#888" />
-                <LevelBox label="Öğreniliyor" value={data.learning_cards} color="#fd7e14" />
-                <LevelBox label="Tekrar" value={data.review_cards} color="#007bff" />
-                <LevelBox label="Ustası" value={data.mastered_cards} color="#1DB954" />
+            <View style={s.statusGrid}>
+                {[
+                    { label: 'Yeni', value: data.new_cards, color: colors.textMuted, emoji: '🆕' },
+                    { label: 'Öğreniliyor', value: data.learning_cards, color: colors.warning, emoji: '🔥' },
+                    { label: 'Tekrar', value: data.review_cards, color: colors.secondary, emoji: '🔄' },
+                    { label: 'Ustası', value: data.mastered_cards, color: colors.success, emoji: '⭐' },
+                ].map((item, i) => (
+                    <MotionView
+                        key={item.label}
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.35, delay: 0.15 + i * 0.07 }}
+                        whileHover={{ y: -3, boxShadow: `0 8px 24px rgba(0,0,0,0.4)` }}
+                        style={{
+                            flex: 1,
+                            backgroundColor: colors.surface,
+                            borderRadius: radius.lg,
+                            padding: 12,
+                            alignItems: 'center',
+                            border: `1.5px solid ${item.color}30`,
+                            cursor: 'default',
+                        }}
+                    >
+                        <Text style={{ fontSize: 22, marginBottom: 6 }}>{item.emoji}</Text>
+                        <Text style={[s.statusValue, { color: item.color }]}>{item.value}</Text>
+                        <Text style={s.statusLabel}>{item.label}</Text>
+                    </MotionView>
+                ))}
             </View>
 
-            {/* Summary stats */}
-            <Text style={s.sectionTitle}>Genel İstatistikler</Text>
-            <View style={s.statsCard}>
-                <StatRow label="Toplam Kart" value={data.total_cards.toString()} />
-                <StatRow label="Toplam Quiz" value={data.total_quizzes.toString()} />
-                <StatRow
-                    label="Genel Başarı"
-                    value={`%${data.overall_success_rate.toFixed(1)}`}
-                    valueColor={data.overall_success_rate >= 70 ? '#1DB954' : '#fd7e14'}
-                />
-            </View>
-
-            {/* Difficult cards */}
+            {/* Difficult Cards */}
             {data.most_difficult_cards.length > 0 && (
-                <>
+                <MotionView
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.4, delay: 0.4 }}
+                >
                     <Text style={s.sectionTitle}>🔴 En Zor Kelimeler</Text>
-                    {data.most_difficult_cards.map(c => (
-                        <View key={c.id} style={s.cardRow}>
-                            <Text style={s.cardFront}>{c.front}</Text>
-                            <Text style={s.cardBack}>{c.back}</Text>
-                        </View>
+                    {data.most_difficult_cards.map((c, i) => (
+                        <MotionView
+                            key={c.id}
+                            initial={{ opacity: 0, x: -12 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.4 + i * 0.07 }}
+                            style={{
+                                backgroundColor: colors.surface,
+                                borderRadius: radius.md,
+                                padding: 14,
+                                marginBottom: 8,
+                                flexDirection: 'row',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                borderLeft: `3px solid ${colors.danger}`,
+                            }}
+                        >
+                            <Text style={s.wordFront}>{c.front}</Text>
+                            <Text style={[s.wordBack, { color: colors.danger }]}>{c.back}</Text>
+                        </MotionView>
                     ))}
-                </>
+                </MotionView>
             )}
 
-            {/* Best known cards */}
+            {/* Best Known Cards */}
             {data.best_known_cards.length > 0 && (
-                <>
+                <MotionView
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.4, delay: 0.5 }}
+                >
                     <Text style={s.sectionTitle}>🟢 En İyi Bilinen Kelimeler</Text>
-                    {data.best_known_cards.map(c => (
-                        <View key={c.id} style={s.cardRow}>
-                            <Text style={s.cardFront}>{c.front}</Text>
-                            <Text style={s.cardBack}>{c.back}</Text>
-                        </View>
+                    {data.best_known_cards.map((c, i) => (
+                        <MotionView
+                            key={c.id}
+                            initial={{ opacity: 0, x: -12 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.5 + i * 0.07 }}
+                            style={{
+                                backgroundColor: colors.surface,
+                                borderRadius: radius.md,
+                                padding: 14,
+                                marginBottom: 8,
+                                flexDirection: 'row',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                borderLeft: `3px solid ${colors.success}`,
+                            }}
+                        >
+                            <Text style={s.wordFront}>{c.front}</Text>
+                            <Text style={[s.wordBack, { color: colors.success }]}>{c.back}</Text>
+                        </MotionView>
                     ))}
-                </>
+                </MotionView>
             )}
 
             {data.total_cards === 0 && (
                 <View style={s.emptyBox}>
-                    <Text style={s.emptyText}>Henüz kart eklenmemiş.</Text>
-                    <Text style={s.emptySubText}>Quiz yaptıkça istatistikler burada görünür.</Text>
+                    <Text style={{ fontSize: 48, marginBottom: 12 }}>🌱</Text>
+                    <Text style={s.emptyTitle}>Henüz kart yok</Text>
+                    <Text style={s.emptyText}>Quiz yaptıkça istatistikler burada görünür.</Text>
                 </View>
             )}
         </ScrollView>
     );
 }
 
-function LevelBox({ label, value, color }: { label: string; value: number; color: string }) {
-    return (
-        <View style={lb.box}>
-            <Text style={[lb.value, { color }]}>{value}</Text>
-            <Text style={lb.label}>{label}</Text>
-        </View>
-    );
-}
-
-function StatRow({ label, value, valueColor = '#fff' }: { label: string; value: string; valueColor?: string }) {
-    return (
-        <View style={sr.row}>
-            <Text style={sr.label}>{label}</Text>
-            <Text style={[sr.value, { color: valueColor }]}>{value}</Text>
-        </View>
-    );
-}
-
-const lb = StyleSheet.create({
-    box: { flex: 1, alignItems: 'center', backgroundColor: '#1e1e1e', borderRadius: 12, padding: 12, marginHorizontal: 3 },
-    value: { fontSize: 22, fontWeight: 'bold' },
-    label: { fontSize: 11, color: '#b3b3b3', marginTop: 4, textAlign: 'center' },
-});
-
-const sr = StyleSheet.create({
-    row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#2a2a2a' },
-    label: { fontSize: 15, color: '#b3b3b3' },
-    value: { fontSize: 15, fontWeight: 'bold' },
-});
-
 const s = StyleSheet.create({
-    container: { flexGrow: 1, backgroundColor: '#121212', padding: 20 },
-    title: { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 24, textAlign: 'center' },
-    sectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#b3b3b3', marginTop: 20, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
-    row: { flexDirection: 'row' },
-    statsCard: { backgroundColor: '#1e1e1e', borderRadius: 12, padding: 16 },
-    cardRow: { backgroundColor: '#1e1e1e', borderRadius: 10, padding: 12, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between' },
-    cardFront: { color: '#fff', fontWeight: 'bold', flex: 1 },
-    cardBack: { color: '#1DB954', flex: 1, textAlign: 'right' },
-    noData: { color: '#888', textAlign: 'center', marginTop: 60 },
-    emptyBox: { alignItems: 'center', marginTop: 40 },
-    emptyText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-    emptySubText: { color: '#b3b3b3', marginTop: 8, textAlign: 'center' },
+    container: {
+        flexGrow: 1,
+        backgroundColor: colors.bg,
+        padding: spacing.lg,
+        paddingBottom: 48,
+    } as any,
+    loadingContainer: {
+        flex: 1,
+        backgroundColor: colors.bg,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        marginBottom: spacing.lg,
+    } as any,
+    headerEmoji: { fontSize: 36 },
+    headerTitle: {
+        ...typography.h2,
+        marginBottom: 2,
+    },
+    headerSub: {
+        ...typography.caption,
+        color: colors.textMuted,
+    },
+    heroCard: {
+        backgroundColor: colors.surface,
+        borderRadius: radius.xl,
+        padding: spacing.lg,
+        marginBottom: spacing.lg,
+        border: `1px solid ${colors.border}`,
+        boxShadow: '0 4px 32px rgba(0,0,0,0.4)',
+    } as any,
+    heroLabel: {
+        ...typography.label,
+        marginBottom: 8,
+    },
+    heroValue: {
+        fontSize: 52,
+        fontWeight: '800',
+        marginBottom: 16,
+    } as any,
+    progressTrack: {
+        height: 8,
+        backgroundColor: colors.surfaceHigh,
+        borderRadius: radius.full,
+        overflow: 'hidden',
+        marginBottom: spacing.lg,
+    },
+    progressFill: {
+        height: 8,
+        borderRadius: radius.full,
+    } as any,
+    heroStats: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    heroStatItem: { flex: 1, alignItems: 'center' },
+    heroStatValue: {
+        fontSize: 24,
+        fontWeight: '700',
+        marginBottom: 2,
+    } as any,
+    heroStatLabel: { ...typography.caption },
+    heroStatDivider: {
+        width: 1,
+        height: 32,
+        backgroundColor: colors.border,
+        marginHorizontal: spacing.md,
+    },
+    sectionTitle: {
+        ...typography.label,
+        marginBottom: spacing.sm,
+        marginTop: spacing.md,
+    },
+    statusGrid: {
+        flexDirection: 'row',
+        gap: 10,
+        marginBottom: spacing.md,
+    } as any,
+    statusCard: {
+        flex: 1,
+        backgroundColor: colors.surface,
+        borderRadius: radius.lg,
+        padding: 12,
+        alignItems: 'center',
+        border: `1.5px solid transparent`,
+        cursor: 'default',
+    } as any,
+    statusValue: {
+        fontSize: 22,
+        fontWeight: '700',
+        marginBottom: 2,
+    } as any,
+    statusLabel: { ...typography.caption, textAlign: 'center' },
+    wordCard: {
+        backgroundColor: colors.surface,
+        borderRadius: radius.md,
+        padding: 14,
+        marginBottom: 8,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderLeftWidth: 3,
+        borderLeftColor: colors.success,
+    } as any,
+    wordFront: { ...typography.bodyBold, flex: 1 },
+    wordBack: {
+        ...typography.body,
+        flex: 1,
+        textAlign: 'right',
+    } as any,
+    emptyBox: {
+        alignItems: 'center',
+        marginTop: 48,
+        paddingBottom: 32,
+    },
+    emptyTitle: { ...typography.h3, marginBottom: 8 },
+    emptyText: {
+        ...typography.body,
+        color: colors.textMuted,
+        textAlign: 'center',
+    } as any,
 });

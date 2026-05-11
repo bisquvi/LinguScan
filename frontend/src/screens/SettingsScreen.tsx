@@ -1,17 +1,14 @@
 import React, { useContext, useEffect, useState } from 'react';
-import {
-    View, Text, StyleSheet, TouchableOpacity,
-    ActivityIndicator, ScrollView,
-} from 'react-native';
+import { View, Text, ActivityIndicator, ScrollView } from 'react-native';
 import { apiClient } from '../api/client';
 import { AuthContext } from '../context/AuthContext';
+import { colors, radius, spacing } from '../theme';
+import { motion } from 'framer-motion';
 
-interface ProviderOption {
-    key: string;
-    label: string;
-    icon: string;
-    description: string;
-}
+// ── Framer Motion element ──────────────────────────────────────────────────
+const Mv = motion.div as any;
+
+interface ProviderOption { key: string; label: string; icon: string; description: string; }
 
 const PROVIDERS: ProviderOption[] = [
     { key: 'google_free', label: 'Google Translate (Ücretsiz)', icon: '🌐', description: '🆓 API key gerektirmez' },
@@ -38,11 +35,7 @@ export default function SettingsScreen() {
     };
 
     useEffect(() => {
-        if (!user) {
-            setLoading(false);
-            return;
-        }
-
+        if (!user) { setLoading(false); return; }
         (async () => {
             try {
                 const resp = await apiClient.get('/settings');
@@ -56,140 +49,246 @@ export default function SettingsScreen() {
     }, [user]);
 
     const handleSelect = async (key: string) => {
-        if (key === selectedProvider) return;
+        if (key === selectedProvider || saving) return;
         setSaving(true);
         try {
             await apiClient.put('/settings', { translation_provider: key });
             setSelectedProvider(key);
             const label = PROVIDERS.find(p => p.key === key)?.label ?? key;
-            showToast(`✅ Çeviri motoru: ${label}`, true);
+            showToast(`✓ Çeviri motoru: ${label}`, true);
         } catch {
-            showToast('❌ Ayar kaydedilemedi', false);
+            showToast('Ayar kaydedilemedi', false);
         } finally {
             setSaving(false);
         }
     };
 
-    if (loading) {
-        return (
-            <View style={styles.center}>
-                <ActivityIndicator size="large" color="#1DB954" />
-            </View>
-        );
-    }
+    // ── CSS objects (never spread RN StyleSheet onto motion.div) ────────────
+    const css = {
+        page: {
+            flex: 1,
+            backgroundColor: colors.bg,
+            minHeight: '100vh',
+        } as React.CSSProperties,
+        scroll: {
+            padding: spacing.lg,
+            paddingBottom: 48,
+        } as React.CSSProperties,
+        center: {
+            display: 'flex',
+            flexDirection: 'column' as const,
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '80vh',
+            gap: 12,
+        } as React.CSSProperties,
+        heading: {
+            fontSize: 26,
+            fontWeight: '800',
+            color: colors.textPrimary,
+            marginBottom: 6,
+        } as React.CSSProperties,
+        subheading: {
+            fontSize: 14,
+            color: colors.textMuted,
+            lineHeight: 1.6,
+            marginBottom: 24,
+        } as React.CSSProperties,
+        card: (selected: boolean) => ({
+            display: 'flex',
+            flexDirection: 'row' as const,
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: selected ? colors.primaryDim : colors.surface,
+            borderRadius: radius.lg,
+            padding: '14px 16px',
+            marginBottom: 10,
+            border: `1.5px solid ${selected ? colors.primary : colors.border}`,
+            cursor: saving ? 'default' : 'pointer',
+            userSelect: 'none' as const,
+            transition: 'background 0.2s, border-color 0.2s',
+        }),
+        cardLeft: {
+            display: 'flex',
+            flexDirection: 'row' as const,
+            alignItems: 'center',
+            gap: 12,
+            flex: 1,
+        } as React.CSSProperties,
+        radio: (selected: boolean) => ({
+            width: 20,
+            height: 20,
+            borderRadius: '50%',
+            border: `2px solid ${selected ? colors.primary : colors.textMuted}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            transition: 'border-color 0.2s',
+        }) as React.CSSProperties,
+        radioDot: {
+            width: 10,
+            height: 10,
+            borderRadius: '50%',
+            backgroundColor: colors.primary,
+        } as React.CSSProperties,
+        icon: { fontSize: 20 } as React.CSSProperties,
+        labelGroup: { display: 'flex', flexDirection: 'column' as const, gap: 2 },
+        label: (selected: boolean) => ({
+            fontSize: 15,
+            fontWeight: '600',
+            color: selected ? colors.primary : colors.textPrimary,
+            transition: 'color 0.2s',
+        }),
+        desc: {
+            fontSize: 12,
+            color: colors.textMuted,
+        } as React.CSSProperties,
+        infoBox: {
+            backgroundColor: colors.secondaryDim,
+            borderRadius: radius.lg,
+            padding: 18,
+            marginTop: 20,
+            border: `1px solid ${colors.secondary}30`,
+        } as React.CSSProperties,
+        infoTitle: {
+            fontSize: 13,
+            fontWeight: '700',
+            color: colors.secondary,
+            marginBottom: 8,
+        } as React.CSSProperties,
+        infoText: {
+            fontSize: 13,
+            color: colors.textMuted,
+            lineHeight: 1.6,
+            marginBottom: 4,
+        } as React.CSSProperties,
+        toast: (success: boolean) => ({
+            position: 'fixed' as const,
+            bottom: 32,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: success ? colors.primary : colors.danger,
+            color: success ? colors.bg : '#fff',
+            fontWeight: '700',
+            fontSize: 14,
+            padding: '12px 24px',
+            borderRadius: radius.full,
+            zIndex: 9999,
+            boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+            whiteSpace: 'nowrap' as const,
+        }),
+    };
 
-    if (!user) {
-        return (
-            <View style={styles.center}>
-                <Text style={styles.loginTitle}>Giriş gerekli</Text>
-                <Text style={styles.loginText}>
+    if (loading) return (
+        <div style={css.page}>
+            <div style={css.center}>
+                <Mv
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                    style={{
+                        width: 36, height: 36, borderRadius: '50%',
+                        border: `3px solid ${colors.primaryDim}`,
+                        borderTopColor: colors.primary,
+                    }}
+                />
+                <span style={{ color: colors.textMuted, fontSize: 14 }}>Yükleniyor...</span>
+            </div>
+        </div>
+    );
+
+    if (!user) return (
+        <div style={css.page}>
+            <div style={css.center}>
+                <span style={{ fontSize: 40 }}>🔒</span>
+                <span style={{ ...css.heading, textAlign: 'center' }}>Giriş gerekli</span>
+                <span style={{ ...css.subheading, textAlign: 'center', maxWidth: 280 }}>
                     Çeviri ayarlarını değiştirmek için önce hesabınıza giriş yapın.
-                </Text>
-            </View>
-        );
-    }
+                </span>
+            </div>
+        </div>
+    );
 
     return (
-        <View style={styles.container}>
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                <Text style={styles.sectionTitle}>Çeviri Motoru</Text>
-                <Text style={styles.sectionSubtitle}>
-                    Kelime çevirisi için kullanılacak servisi seçin.
-                    {'\n'}Eğer seçilen servis çalışmazsa, sırasıyla diğer servisler denenir.
-                </Text>
+        <div style={css.page}>
+            <div style={css.scroll}>
+                {/* Header */}
+                <Mv
+                    initial={{ opacity: 0, y: -12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    style={{ marginBottom: 24 }}
+                >
+                    <h2 style={{ ...css.heading, margin: 0, marginBottom: 6 }}>Çeviri Motoru</h2>
+                    <p style={{ ...css.subheading, margin: 0 }}>
+                        Kelime çevirisi için kullanılacak servisi seçin.
+                        <br />Seçilen servis çalışmazsa diğerleri otomatik denenir.
+                    </p>
+                </Mv>
 
-                {PROVIDERS.map((p) => {
-                    const isSelected = p.key === selectedProvider;
+                {/* Provider list */}
+                {PROVIDERS.map((p, i) => {
+                    const selected = p.key === selectedProvider;
                     return (
-                        <TouchableOpacity
+                        <Mv
                             key={p.key}
-                            style={[styles.providerCard, isSelected && styles.providerCardActive]}
-                            onPress={() => handleSelect(p.key)}
-                            disabled={saving}
-                            activeOpacity={0.7}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.06 + i * 0.05, duration: 0.26 }}
+                            whileHover={saving ? {} : { x: 4 }}
+                            whileTap={saving ? {} : { scale: 0.98 }}
+                            onClick={() => handleSelect(p.key)}
+                            style={css.card(selected)}
                         >
-                            <View style={styles.providerLeft}>
-                                <View style={[styles.radio, isSelected && styles.radioActive]}>
-                                    {isSelected && <View style={styles.radioInner} />}
-                                </View>
-                                <Text style={styles.providerIcon}>{p.icon}</Text>
-                                <View>
-                                    <Text style={[styles.providerLabel, isSelected && styles.providerLabelActive]}>
-                                        {p.label}
-                                    </Text>
-                                    <Text style={styles.providerDesc}>{p.description}</Text>
-                                </View>
-                            </View>
-                            {saving && isSelected && <ActivityIndicator size="small" color="#1DB954" />}
-                        </TouchableOpacity>
+                            <div style={css.cardLeft}>
+                                {/* Radio */}
+                                <div style={css.radio(selected)}>
+                                    {selected && <div style={css.radioDot} />}
+                                </div>
+                                {/* Icon */}
+                                <span style={css.icon}>{p.icon}</span>
+                                {/* Labels */}
+                                <div style={css.labelGroup}>
+                                    <span style={css.label(selected)}>{p.label}</span>
+                                    <span style={css.desc}>{p.description}</span>
+                                </div>
+                            </div>
+                            {/* Saving spinner */}
+                            {saving && selected && (
+                                <ActivityIndicator size="small" color={colors.primary} />
+                            )}
+                        </Mv>
                     );
                 })}
 
-                <View style={styles.infoBox}>
-                    <Text style={styles.infoTitle}>ℹ️ Yedekleme Sırası (Fallback)</Text>
-                    <Text style={styles.infoText}>
+                {/* Info box */}
+                <Mv
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                    style={css.infoBox}
+                >
+                    <div style={css.infoTitle}>ℹ️ Yedekleme Sırası (Fallback)</div>
+                    <div style={css.infoText}>
                         Google Free → MyMemory → Google → Yandex → LibreTranslate → Ollama
-                    </Text>
-                    <Text style={styles.infoText}>
-                        Seçilen motor başarısız olursa, yukarıdaki sıraya göre otomatik olarak
-                        bir sonraki motor denenir.
-                    </Text>
-                </View>
-            </ScrollView>
+                    </div>
+                    <div style={{ ...css.infoText, marginBottom: 0 }}>
+                        Seçilen motor başarısız olursa, yukarıdaki sıraya göre otomatik olarak bir sonraki motor denenir.
+                    </div>
+                </Mv>
+            </div>
 
+            {/* Toast */}
             {toast && (
-                <View style={[styles.toast, toast.success ? styles.toastSuccess : styles.toastError]}>
-                    <Text style={styles.toastText}>{toast.message}</Text>
-                </View>
+                <Mv
+                    initial={{ opacity: 0, y: 20, x: '-50%' }}
+                    animate={{ opacity: 1, y: 0, x: '-50%' }}
+                    exit={{ opacity: 0, y: 20, x: '-50%' }}
+                    style={css.toast(toast.success)}
+                >
+                    {toast.message}
+                </Mv>
             )}
-        </View>
+        </div>
     );
 }
-
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#121212' },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#121212' },
-    loginTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 8 },
-    loginText: { fontSize: 14, color: '#b3b3b3', textAlign: 'center', paddingHorizontal: 32, lineHeight: 22 },
-    scrollContent: { padding: 20, paddingBottom: 40 },
-
-    sectionTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 6 },
-    sectionSubtitle: { fontSize: 13, color: '#b3b3b3', marginBottom: 24, lineHeight: 20 },
-
-    providerCard: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        backgroundColor: '#1e1e1e', borderRadius: 14, padding: 16, marginBottom: 10,
-        borderWidth: 1.5, borderColor: 'transparent',
-    },
-    providerCardActive: { borderColor: '#1DB954', backgroundColor: '#1a2e1f' },
-    providerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-
-    radio: {
-        width: 22, height: 22, borderRadius: 11,
-        borderWidth: 2, borderColor: '#555',
-        alignItems: 'center', justifyContent: 'center',
-    },
-    radioActive: { borderColor: '#1DB954' },
-    radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#1DB954' },
-
-    providerIcon: { fontSize: 22 },
-    providerLabel: { fontSize: 16, fontWeight: '600', color: '#e0e0e0' },
-    providerLabelActive: { color: '#1DB954' },
-    providerDesc: { fontSize: 12, color: '#888', marginTop: 2 },
-
-    infoBox: {
-        backgroundColor: '#1a1a2e', borderRadius: 14, padding: 18, marginTop: 20,
-        borderWidth: 1, borderColor: '#2D46B9',
-    },
-    infoTitle: { fontSize: 14, fontWeight: 'bold', color: '#8b9cf7', marginBottom: 8 },
-    infoText: { fontSize: 13, color: '#b3b3b3', lineHeight: 20, marginBottom: 4 },
-
-    toast: {
-        position: 'absolute', bottom: 40, left: 20, right: 20,
-        padding: 16, borderRadius: 12, zIndex: 9999,
-        shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8,
-    },
-    toastSuccess: { backgroundColor: '#1DB954' },
-    toastError: { backgroundColor: '#E91429' },
-    toastText: { color: '#fff', fontWeight: 'bold', fontSize: 14, textAlign: 'center' },
-});

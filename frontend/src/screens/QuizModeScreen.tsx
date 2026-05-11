@@ -1,19 +1,45 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { apiClient } from '../api/client';
+import { colors, radius, spacing, typography } from '../theme';
+import { motion } from 'framer-motion';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'QuizMode'>;
 type RoutePropType = RouteProp<RootStackParamList, 'QuizMode'>;
+
+const Mv = motion.div as any;
+
+const QUIZ_MODES = [
+    {
+        type: 'recall' as const,
+        emoji: '🧠',
+        title: 'Recall Quiz',
+        desc: 'Türkçe anlamı görürsün, İngilizce karşılığını hatırlamaya çalışırsın. Cevabı kendin açar ve değerlendirirsin.',
+        color: colors.secondary,
+        badge: 'Aktif Tekrar',
+    },
+    {
+        type: 'multiple_choice' as const,
+        emoji: '🎯',
+        title: 'Çoktan Seçmeli',
+        desc: 'İngilizce kelimeyi görürsün, 4 Türkçe seçenek arasından doğrusunu seçersin.',
+        color: colors.primary,
+        badge: 'Hızlı Öğren',
+    },
+];
 
 export default function QuizModeScreen() {
     const navigation = useNavigation<NavProp>();
     const route = useRoute<RoutePropType>();
     const { deckId, deckName } = route.params;
+    const [loading, setLoading] = useState<string | null>(null);
 
     const startQuiz = async (quizType: 'recall' | 'multiple_choice') => {
+        if (loading) return;
+        setLoading(quizType);
         try {
             const resp = await apiClient.post('/quiz/session/start', {
                 deck_id: deckId,
@@ -28,64 +54,191 @@ export default function QuizModeScreen() {
             });
         } catch (e) {
             console.error(e);
+        } finally {
+            setLoading(null);
         }
     };
 
     return (
-        <ScrollView contentContainerStyle={styles.container}>
-            <Text style={styles.title}>{deckName}</Text>
-            <Text style={styles.subtitle}>Quiz modunu seç</Text>
+        <ScrollView contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
+            {/* Header */}
+            <Mv
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35 }}
+                style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    marginBottom: spacing.xl,
+                    marginTop: spacing.sm,
+                }}
+            >
+                <View style={s.deckBadge}>
+                    <Text style={s.deckBadgeText}>📚 {deckName}</Text>
+                </View>
+                <Text style={s.title}>Quiz Modu Seç</Text>
+                <Text style={s.subtitle}>Sana en uygun öğrenme modunu seç</Text>
+            </Mv>
 
-            <TouchableOpacity style={styles.card} onPress={() => startQuiz('recall')}>
-                <Text style={styles.cardEmoji}>🧠</Text>
-                <Text style={styles.cardTitle}>Recall Quiz</Text>
-                <Text style={styles.cardDesc}>
-                    Türkçe anlamı görürsün, İngilizce karşılığını hatırlamaya çalışırsın.
-                    Cevabı kendin açar ve değerlendirirsin.
-                </Text>
-            </TouchableOpacity>
+            {/* Mode Cards — pure inline CSS on Mv to avoid RN StyleSheet crash */}
+            <View style={s.modesContainer}>
+                {QUIZ_MODES.map((mode, i) => {
+                    const isLoading = loading === mode.type;
+                    return (
+                        <Mv
+                            key={mode.type}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.35, delay: 0.1 + i * 0.1 }}
+                            whileHover={loading ? {} : { y: -4, boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }}
+                            whileTap={loading ? {} : { scale: 0.98 }}
+                            onClick={() => startQuiz(mode.type)}
+                            style={{
+                                display: 'flex',
+                                flexDirection: 'row',
+                                alignItems: 'flex-start',
+                                gap: 16,
+                                backgroundColor: colors.surface,
+                                borderRadius: radius.xl,
+                                padding: spacing.lg,
+                                border: `1.5px solid ${mode.color}40`,
+                                cursor: loading ? 'default' : 'pointer',
+                                boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
+                                marginBottom: 16,
+                                userSelect: 'none',
+                            }}
+                        >
+                            {/* Icon */}
+                            <div style={{
+                                width: 72, height: 72,
+                                borderRadius: radius.lg,
+                                backgroundColor: mode.color + '18',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                            }}>
+                                <span style={{ fontSize: 36 }}>{mode.emoji}</span>
+                            </div>
 
-            <TouchableOpacity style={styles.card} onPress={() => startQuiz('multiple_choice')}>
-                <Text style={styles.cardEmoji}>🎯</Text>
-                <Text style={styles.cardTitle}>Çoktan Seçmeli</Text>
-                <Text style={styles.cardDesc}>
-                    İngilizce kelimeyi görürsün, 4 Türkçe seçenek arasından doğrusunu seçersin.
-                </Text>
-            </TouchableOpacity>
+                            {/* Info */}
+                            <div style={{ flex: 1 }}>
+                                {/* Title row */}
+                                <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 10,
+                                    marginBottom: 8,
+                                    flexWrap: 'wrap',
+                                }}>
+                                    <span style={{
+                                        fontSize: 17,
+                                        fontWeight: '700',
+                                        color: colors.textPrimary,
+                                    }}>
+                                        {mode.title}
+                                    </span>
+                                    <span style={{
+                                        backgroundColor: mode.color + '20',
+                                        borderRadius: radius.full,
+                                        padding: '3px 10px',
+                                        fontSize: 11,
+                                        fontWeight: '700',
+                                        color: mode.color,
+                                        letterSpacing: 0.5,
+                                    }}>
+                                        {mode.badge}
+                                    </span>
+                                </div>
 
-            <TouchableOpacity style={styles.dashboardBtn} onPress={() => navigation.navigate('Dashboard')}>
-                <Text style={styles.dashboardBtnText}>📊 İlerleme Paneli</Text>
-            </TouchableOpacity>
+                                {/* Description */}
+                                <p style={{
+                                    margin: 0,
+                                    marginBottom: 14,
+                                    fontSize: 14,
+                                    color: colors.textMuted,
+                                    lineHeight: 1.55,
+                                }}>
+                                    {mode.desc}
+                                </p>
+
+                                {/* Start chip */}
+                                <div style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    backgroundColor: mode.color,
+                                    borderRadius: radius.full,
+                                    padding: '8px 20px',
+                                }}>
+                                    {isLoading
+                                        ? <ActivityIndicator size="small" color={colors.bg} />
+                                        : <span style={{ color: colors.bg, fontWeight: '700', fontSize: 14 }}>Başla →</span>
+                                    }
+                                </div>
+                            </div>
+                        </Mv>
+                    );
+                })}
+            </View>
+
+            {/* Dashboard CTA */}
+            <Mv
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                style={{ display: 'flex', justifyContent: 'center' }}
+            >
+                <TouchableOpacity
+                    style={s.dashBtn}
+                    onPress={() => navigation.navigate('Dashboard')}
+                >
+                    <Text style={s.dashBtnText}>📊 İlerleme Paneli</Text>
+                </TouchableOpacity>
+            </Mv>
         </ScrollView>
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flexGrow: 1, backgroundColor: '#121212', padding: 24, alignItems: 'center' },
-    title: { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 4, marginTop: 16 },
-    subtitle: { fontSize: 14, color: '#b3b3b3', marginBottom: 32 },
-
-    card: {
-        backgroundColor: '#1e1e1e',
-        borderRadius: 16,
-        padding: 24,
-        width: '100%',
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: '#2a2a2a',
-        alignItems: 'center',
+const s = StyleSheet.create({
+    container: {
+        flexGrow: 1,
+        backgroundColor: colors.bg,
+        padding: spacing.lg,
+        paddingBottom: 48,
+    } as any,
+    deckBadge: {
+        backgroundColor: colors.primaryDim,
+        borderRadius: radius.full,
+        paddingVertical: 6,
+        paddingHorizontal: 16,
+        marginBottom: 14,
     },
-    cardEmoji: { fontSize: 42, marginBottom: 12 },
-    cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 8 },
-    cardDesc: { fontSize: 13, color: '#b3b3b3', textAlign: 'center', lineHeight: 20 },
-
-    dashboardBtn: {
-        marginTop: 12,
+    deckBadgeText: {
+        ...typography.caption,
+        color: colors.primary,
+        fontWeight: '700',
+    } as any,
+    title: { ...typography.h1, textAlign: 'center', marginBottom: 6 },
+    subtitle: {
+        ...typography.body,
+        color: colors.textMuted,
+        textAlign: 'center',
+    } as any,
+    modesContainer: { marginBottom: spacing.lg },
+    dashBtn: {
         paddingVertical: 12,
         paddingHorizontal: 28,
-        borderRadius: 24,
-        borderWidth: 1,
-        borderColor: '#1DB954',
+        borderRadius: radius.full,
+        borderWidth: 1.5,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+        alignSelf: 'center',
     },
-    dashboardBtnText: { color: '#1DB954', fontWeight: 'bold', fontSize: 15 },
+    dashBtnText: {
+        ...typography.bodyBold,
+        color: colors.textSecondary,
+    } as any,
 });
