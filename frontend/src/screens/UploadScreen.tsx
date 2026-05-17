@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from 'react';
 import { colors, radius } from '../theme';
 import {
     View, Text, StyleSheet, ActivityIndicator,
-    Modal, TouchableOpacity, Platform, FlatList, ScrollView, Image, Animated, Alert
+    Modal, TouchableOpacity, Platform, FlatList, ScrollView, Image, Animated, Alert, Dimensions
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,6 +15,10 @@ import LoginModal from '../components/LoginModal';
 import { RootStackParamList } from '../types/navigation';
 import { OCRResult, ViewMode } from '../types/ocr';
 import { showAlert } from '../utils/alert';
+import { ImageIcon, ImagePlus, Library, PenTool, Settings, User, LogOut, BookOpen, Check, X, Menu } from 'lucide-react-native';
+
+const { width: SCREEN_W, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const IS_MOBILE = SCREEN_W < 768;
 
 const GALLERY_KEY = 'gallery_history';
 const MAX_GALLERY = 5;
@@ -329,9 +333,9 @@ export default function UploadScreen() {
                 setDeckPickerVisible(false);
                 setTranslationVisible(false);
             }
-            showToast(`✅ "${selectedText}" → "${deck.name}" destesine eklendi!`, true);
+            showToast(`"${selectedText}" → "${deck.name}" destesine eklendi!`, true);
         } catch {
-            showToast('❌ Kart eklenemedi. Lütfen tekrar dene.', false);
+            showToast('Kart eklenemedi. Lütfen tekrar dene.', false);
         } finally {
             setAddingCard(false);
         }
@@ -350,53 +354,109 @@ export default function UploadScreen() {
             )}
 
             <View style={styles.header}>
-                {/* Hamburger Menu & Profile - Far Left */}
+                {/* Hamburger Menu */}
                 <View style={{ zIndex: 999, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <TouchableOpacity style={styles.hamburgerBtn} onPress={() => setMenuOpen(!menuOpen)}>
-                        <Text style={styles.hamburgerText}>☰</Text>
+                        <Menu size={24} color={colors.textPrimary} />
                     </TouchableOpacity>
 
                     {menuOpen && (
                         <View style={styles.dropdownMenu}>
                             <TouchableOpacity
-                                style={styles.dropdownItem}
+                                style={[styles.dropdownItem, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
                                 onPress={() => { setMenuOpen(false); setGalleryVisible(true); }}
                             >
-                                <Text style={styles.dropdownItemText}>🖼️ Galeri</Text>
+                                <ImageIcon size={18} color={colors.textPrimary} />
+                                <Text style={styles.dropdownItemText}>Galeri</Text>
                             </TouchableOpacity>
+                            {IS_MOBILE && (
+                                <>
+                                    <TouchableOpacity
+                                        style={[styles.dropdownItem, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
+                                        onPress={() => { setMenuOpen(false); pickImage(); }}
+                                    >
+                                        <ImagePlus size={18} color={colors.textPrimary} />
+                                        <Text style={styles.dropdownItemText}>Görsel Seç</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.dropdownItem, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
+                                        onPress={() => {
+                                            setMenuOpen(false);
+                                            if (!user) { Alert.alert('Erişim Engellendi', 'Lütfen giriş yapınız.'); return; }
+                                            navigation.navigate('Decks');
+                                        }}
+                                    >
+                                        <Library size={18} color={colors.textPrimary} />
+                                        <Text style={styles.dropdownItemText}>Destelerim</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.dropdownItem, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
+                                        onPress={() => {
+                                            setMenuOpen(false);
+                                            if (!user) { Alert.alert('Erişim Engellendi', 'Lütfen giriş yapınız.'); return; }
+                                            navigation.navigate('SentenceDecks');
+                                        }}
+                                    >
+                                        <PenTool size={18} color={colors.textPrimary} />
+                                        <Text style={styles.dropdownItemText}>Cümlelerim</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.dropdownItem, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
+                                        onPress={() => {
+                                            setMenuOpen(false);
+                                            if (!user) { requestLogin(); return; }
+                                            navigation.navigate('Settings');
+                                        }}
+                                    >
+                                        <Settings size={18} color={colors.textPrimary} />
+                                        <Text style={styles.dropdownItemText}>Ayarlar</Text>
+                                    </TouchableOpacity>
+                                </>
+                            )}
                         </View>
                     )}
                 </View>
 
-                {/* Center Buttons */}
-                <View style={styles.headerBtns}>
-                    <TouchableOpacity style={styles.headerBtn} onPress={pickImage}>
-                        <Text style={styles.headerBtnText}>📷 Görsel Seç</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.headerBtn, styles.decksBtn]} onPress={() => {
-                        if (!user) { Alert.alert('Erişim Engellendi', 'Bu işlem için lütfen giriş yapınız.'); return; }
-                        navigation.navigate('Decks');
-                    }}>
-                        <Text style={styles.headerBtnText}>📚 Destelerim</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.headerBtn, styles.sentenceDecksBtn]} onPress={() => {
-                        if (!user) { Alert.alert('Erişim Engellendi', 'Bu işlem için lütfen giriş yapınız.'); return; }
-                        navigation.navigate('SentenceDecks');
-                    }}>
-                        <Text style={styles.headerBtnText}>📚 Cümlelerim</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.headerBtn, styles.settingsBtn]} onPress={() => {
-                        if (!user) { requestLogin(); return; }
-                        navigation.navigate('Settings');
-                    }}>
-                        <Text style={styles.headerBtnText}>⚙️ Ayarlar</Text>
-                    </TouchableOpacity>
-                </View>
-            
+                {/* Center Buttons - Desktop only */}
+                {!IS_MOBILE && (
+                    <View style={styles.headerBtns}>
+                        <TouchableOpacity style={[styles.headerBtn, { flexDirection: 'row', alignItems: 'center', gap: 6 }]} onPress={pickImage}>
+                            <ImagePlus size={16} color={colors.bg} />
+                            <Text style={styles.headerBtnText}>Görsel Seç</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.headerBtn, styles.decksBtn, { flexDirection: 'row', alignItems: 'center', gap: 6 }]} onPress={() => {
+                            if (!user) { Alert.alert('Erişim Engellendi', 'Bu işlem için lütfen giriş yapınız.'); return; }
+                            navigation.navigate('Decks');
+                        }}>
+                            <Library size={16} color={colors.bg} />
+                            <Text style={styles.headerBtnText}>Destelerim</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.headerBtn, styles.sentenceDecksBtn, { flexDirection: 'row', alignItems: 'center', gap: 6 }]} onPress={() => {
+                            if (!user) { Alert.alert('Erişim Engellendi', 'Bu işlem için lütfen giriş yapınız.'); return; }
+                            navigation.navigate('SentenceDecks');
+                        }}>
+                            <PenTool size={16} color={colors.bg} />
+                            <Text style={styles.headerBtnText}>Cümlelerim</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.headerBtn, styles.settingsBtn, { flexDirection: 'row', alignItems: 'center', gap: 6 }]} onPress={() => {
+                            if (!user) { requestLogin(); return; }
+                            navigation.navigate('Settings');
+                        }}>
+                            <Settings size={16} color={colors.bg} />
+                            <Text style={styles.headerBtnText}>Ayarlar</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* Mobile app name */}
+                {IS_MOBILE && (
+                    <Text style={styles.mobileBrand}>LinguScan</Text>
+                )}
+
                 {/* Profile Circle - Far Right */}
                 <View style={{ zIndex: 999, flexDirection: 'row', alignItems: 'center', gap: 8, position: 'relative' }}>
-                    <TouchableOpacity 
-                        style={styles.profileBtn} 
+                    <TouchableOpacity
+                        style={styles.profileBtn}
                         onPress={() => {
                             if (user) {
                                 setProfileMenuOpen(!profileMenuOpen);
@@ -409,56 +469,67 @@ export default function UploadScreen() {
                     </TouchableOpacity>
 
                     {profileMenuOpen && user && (
-                        <View style={[styles.dropdownMenu, { right: 0, left: 'auto', minWidth: 180 }]}>
+                        <View style={styles.profileDropdown}>
                             <TouchableOpacity
-                                style={styles.dropdownItem}
+                                style={[styles.dropdownItem, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
                                 onPress={() => { setProfileMenuOpen(false); navigation.navigate('ProfileDetails'); }}
                             >
-                                <Text style={styles.dropdownItemText}>👤 Profil Ayrıntıları</Text>
+                                <User size={18} color={colors.textPrimary} />
+                                <Text style={styles.dropdownItemText}>Profil Ayrıntıları</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
-                                style={styles.dropdownItem}
+                                style={[styles.dropdownItem, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
                                 onPress={() => { setProfileMenuOpen(false); logout(); }}
                             >
-                                <Text style={[styles.dropdownItemText, { color: '#E91429' }]}>🚪 Çıkış Yap</Text>
+                                <LogOut size={18} color="#E91429" />
+                                <Text style={[styles.dropdownItemText, { color: '#E91429' }]}>Çıkış Yap</Text>
                             </TouchableOpacity>
                         </View>
                     )}
                 </View>
             </View>
 
-            {(!imageUri && loading) && <ActivityIndicator size="large" color="#1DB954" style={styles.loader} />}
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ minHeight: SCREEN_HEIGHT * 1.5 }}>
+                {(!imageUri && loading) && <ActivityIndicator size="large" color="#1DB954" style={styles.loader} />}
 
-            {imageUri && (
-                <View style={{ flex: 1 }}>
-                    <ImageOCRViewer
-                        imageUri={imageUri}
-                        ocrData={ocrData}
-                        onWordPress={handleTextPress}
-                        onSentencePress={handleSentencePress}
-                        viewMode={viewMode}
-                        onViewModeChange={setViewMode}
-                        zoomScale={zoomScale}
-                    />
-                    {loading && (
-                        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', zIndex: 10 }]}>
-                            <ActivityIndicator size="large" color="#1DB954" />
-                            <Text style={{ color: '#fff', marginTop: 12, fontWeight: 'bold', fontSize: 16 }}>Metinler taranıyor...</Text>
-                        </View>
-                    )}
-                </View>
-            )}
+                {imageUri && (
+                    <View style={{ height: SCREEN_HEIGHT - 120 }}>
+                        <ImageOCRViewer
+                            imageUri={imageUri}
+                            ocrData={ocrData}
+                            onWordPress={handleTextPress}
+                            onSentencePress={handleSentencePress}
+                            viewMode={viewMode}
+                            onViewModeChange={setViewMode}
+                            zoomScale={zoomScale}
+                        />
+                        {loading && (
+                            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', zIndex: 10 }]}>
+                                <ActivityIndicator size="large" color="#1DB954" />
+                                <Text style={{ color: '#fff', marginTop: 12, fontWeight: 'bold', fontSize: 16 }}>Metinler taranıyor...</Text>
+                            </View>
+                        )}
+                    </View>
+                )}
 
-            {!imageUri && !loading && (
-                <View style={styles.placeholder}>
-                    <Text style={styles.placeholderEmoji}>🖼️</Text>
-                    <Text style={styles.placeholderText}>Kelime öğrenmek için bir görsel seç</Text>
+                {!imageUri && !loading && (
+                    <View style={[styles.placeholder, { height: SCREEN_HEIGHT - 120 }]}>
+                        <ImageIcon size={IS_MOBILE ? 56 : 72} color={colors.textMuted} style={{ marginBottom: 20 }} />
+                        <Text style={styles.placeholderText}>Kelime öğrenmek için bir görsel seç</Text>
+                    </View>
+                )}
+                
+                <View style={{ flex: 1 }} />
+                
+                <View style={styles.footer}>
+                    <Text style={styles.footerText}>LinguScan © 2026</Text>
                 </View>
-            )}
+            </ScrollView>
 
             {/* ── Toast notification ──────────────────── */}
             {toast && (
-                <View style={[styles.toast, toast.success ? styles.toastSuccess : styles.toastError]}>
+                <View style={[styles.toast, toast.success ? styles.toastSuccess : styles.toastError, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+                    {toast.success ? <Check size={18} color="#fff" /> : <X size={18} color="#fff" />}
                     <Text style={styles.toastText}>{toast.message}</Text>
                 </View>
             )}
@@ -480,7 +551,10 @@ export default function UploadScreen() {
                                 {!!translation.m && <Text style={styles.meaningText}>{translation.m}</Text>}
                                 {!!translation.example && (
                                     <View style={styles.exampleContainer}>
-                                        <Text style={styles.exampleLabel}>📖 Örnek cümle</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                                            <BookOpen size={14} color={colors.textMuted} />
+                                            <Text style={[styles.exampleLabel, { marginBottom: 0 }]}>Örnek cümle</Text>
+                                        </View>
                                         <HighlightedSentence sentence={translation.example} highlight={selectedText} />
                                     </View>
                                 )}
@@ -566,10 +640,11 @@ export default function UploadScreen() {
                                     Önce "Destelerim" ekranından bir deste oluştur.
                                 </Text>
                                 <TouchableOpacity
-                                    style={[styles.btn, styles.addBtn, { marginTop: 16 }]}
+                                    style={[styles.btn, styles.addBtn, { marginTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }]}
                                     onPress={() => { setDeckPickerVisible(false); navigation.navigate('Decks'); }}
                                 >
-                                    <Text style={styles.btnText}>📚 Destelerime Git</Text>
+                                    <Library size={18} color={colors.bg} />
+                                    <Text style={styles.btnText}>Destelerime Git</Text>
                                 </TouchableOpacity>
                             </View>
                         ) : (
@@ -616,10 +691,11 @@ export default function UploadScreen() {
                                     Önce "Cümlelerim" ekranından bir deste oluştur.
                                 </Text>
                                 <TouchableOpacity
-                                    style={[styles.btn, styles.addBtn, { marginTop: 16 }]}
+                                    style={[styles.btn, styles.addBtn, { marginTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }]}
                                     onPress={() => { setSentenceDeckPickerVisible(false); navigation.navigate('SentenceDecks'); }}
                                 >
-                                    <Text style={styles.btnText}>📚 Cümlelerime Git</Text>
+                                    <Library size={18} color={colors.bg} />
+                                    <Text style={styles.btnText}>Cümlelerime Git</Text>
                                 </TouchableOpacity>
                             </View>
                         ) : (
@@ -655,7 +731,10 @@ export default function UploadScreen() {
             <Modal visible={galleryVisible} transparent animationType="slide">
                 <View style={styles.galleryOverlay}>
                     <View style={styles.galleryContent}>
-                        <Text style={styles.galleryTitle}>🖼️ Galeri</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                            <ImageIcon size={24} color={colors.textPrimary} />
+                            <Text style={[styles.galleryTitle, { marginBottom: 0 }]}>Galeri</Text>
+                        </View>
                         <Text style={styles.gallerySubtitle}>Son yüklenen görseller</Text>
 
                         {gallery.length === 0 ? (
@@ -734,11 +813,11 @@ export default function UploadScreen() {
 
                 {/* Main Tool Button */}
                 <TouchableOpacity style={styles.mainToolBtn} onPress={toggleTools} activeOpacity={0.8}>
-                    <Animated.Text style={[styles.mainToolBtnIcon, {
+                    <Animated.View style={[{
                         transform: [{ rotate: animation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '90deg'] }) }]
                     }]}>
-                        {toolsOpen ? '✖' : '🛠'}
-                    </Animated.Text>
+                        {toolsOpen ? <X size={24} color="#fff" /> : <Settings size={24} color="#fff" />}
+                    </Animated.View>
                 </TouchableOpacity>
             </View>
 
@@ -753,8 +832,17 @@ export default function UploadScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    header: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, backgroundColor: colors.surface, zIndex: 100, borderBottomWidth: 1, borderBottomColor: colors.border },
-    headerBtns: { flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 10, flexWrap: 'wrap' },
+    header: {
+        flexDirection: 'row', alignItems: 'center',
+        paddingVertical: IS_MOBILE ? 8 : 10, paddingHorizontal: IS_MOBILE ? 10 : 12,
+        backgroundColor: colors.surface, zIndex: 100,
+        borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    mobileBrand: {
+        flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '800',
+        color: colors.primary, letterSpacing: 0.5,
+    },
+    headerBtns: { flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 8, flexWrap: 'nowrap' as const },
     hamburgerBtn: {
         width: 40, height: 40, borderRadius: radius.md,
         backgroundColor: colors.surfaceHigh, alignItems: 'center', justifyContent: 'center',
@@ -763,7 +851,6 @@ const styles = StyleSheet.create({
     profileBtn: {
         width: 40, height: 40, borderRadius: 20,
         backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
-        borderWidth: 0,
     },
     profileText: { fontSize: 16, fontWeight: '800', color: '#fff' },
     dropdownMenu: {
@@ -774,17 +861,25 @@ const styles = StyleSheet.create({
         zIndex: 999, elevation: 12,
         borderWidth: 1, borderColor: colors.border,
     },
+    profileDropdown: {
+        position: 'absolute', top: 46, right: 0,
+        backgroundColor: colors.surface, borderRadius: radius.lg,
+        paddingVertical: 6, minWidth: 180,
+        shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 6 },
+        zIndex: 999, elevation: 12,
+        borderWidth: 1, borderColor: colors.border,
+    },
     dropdownItem: { paddingVertical: 13, paddingHorizontal: 16 },
     dropdownItemText: { color: colors.textPrimary, fontSize: 15, fontWeight: '600' },
     headerBtn: { backgroundColor: colors.primary, paddingVertical: 9, paddingHorizontal: 15, borderRadius: radius.full },
     decksBtn: { backgroundColor: '#4A6FA8' },
     sentenceDecksBtn: { backgroundColor: '#5A8A7A' },
-    settingsBtn: { backgroundColor: colors.surfaceHigh },
+    settingsBtn: { backgroundColor: '#7A9CC0' },
     headerBtnText: { color: colors.bg, fontWeight: '700', fontSize: 13 },
     loader: { marginTop: 60 },
-    placeholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    placeholderEmoji: { fontSize: 72, marginBottom: 20 },
-    placeholderText: { fontSize: 16, color: colors.textMuted, textAlign: 'center' },
+    placeholder: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+    placeholderEmoji: { fontSize: IS_MOBILE ? 56 : 72, marginBottom: 20 },
+    placeholderText: { fontSize: IS_MOBILE ? 14 : 16, color: colors.textMuted, textAlign: 'center' },
 
     toast: {
         position: 'absolute', bottom: 40, left: 20, right: 20,
@@ -818,10 +913,10 @@ const styles = StyleSheet.create({
     sentenceModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', flexDirection: 'row', justifyContent: 'flex-end' },
     sentenceModalContent: {
         backgroundColor: colors.surface,
-        width: Platform.OS === 'web' ? 450 : '85%',
+        width: IS_MOBILE ? '100%' : (Platform.OS === 'web' ? 450 : '85%'),
         height: '100%',
-        paddingHorizontal: 28,
-        paddingTop: 60,
+        paddingHorizontal: IS_MOBILE ? 20 : 28,
+        paddingTop: IS_MOBILE ? 48 : 60,
         paddingBottom: 40,
         justifyContent: 'center',
         position: 'relative' as const
@@ -845,9 +940,10 @@ const styles = StyleSheet.create({
     // Gallery styles
     galleryOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
     galleryContent: {
-        backgroundColor: colors.surface, borderRadius: radius.xl, padding: 28,
-        width: Platform.OS === 'web' ? 520 : '90%',
-        maxHeight: '80%',
+        backgroundColor: colors.surface, borderRadius: radius.xl,
+        padding: IS_MOBILE ? 20 : 28,
+        width: IS_MOBILE ? '95%' : (Platform.OS === 'web' ? 520 : '90%'),
+        maxHeight: '85%',
         borderWidth: 1, borderColor: colors.border,
     },
     galleryTitle: { fontSize: 22, fontWeight: '800', color: colors.textPrimary, marginBottom: 4 },
@@ -929,4 +1025,14 @@ const styles = StyleSheet.create({
         top: 27,
         zIndex: 200,
     },
+    footer: {
+        paddingVertical: 32,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    footerText: {
+        color: colors.textMuted,
+        fontSize: 14,
+        fontWeight: '600',
+    }
 });

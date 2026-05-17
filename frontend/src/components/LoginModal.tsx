@@ -1,12 +1,9 @@
-import React, { useContext, useState } from 'react';
-import { ActivityIndicator, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useContext, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View, Animated } from 'react-native';
 import { apiClient } from '../api/client';
 import { AuthContext } from '../context/AuthContext';
 import { showAlert } from '../utils/alert';
 import { colors, radius, spacing, typography } from '../theme';
-import { motion } from 'framer-motion';
-
-const Mv = motion.div as any;
 
 interface LoginModalProps { visible: boolean; onClose: () => void; }
 
@@ -16,6 +13,21 @@ export default function LoginModal({ visible, onClose }: LoginModalProps) {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const { login } = useContext(AuthContext);
+
+    const scaleAnim = useRef(new Animated.Value(0.88)).current;
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        if (visible) {
+            Animated.parallel([
+                Animated.spring(scaleAnim, { toValue: 1, friction: 6, tension: 40, useNativeDriver: true }),
+                Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true })
+            ]).start();
+        } else {
+            scaleAnim.setValue(0.88);
+            fadeAnim.setValue(0);
+        }
+    }, [visible]);
 
     const resetForm = () => { setUsername(''); setPassword(''); };
 
@@ -39,12 +51,7 @@ export default function LoginModal({ visible, onClose }: LoginModalProps) {
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
             <View style={s.overlay}>
-                <Mv
-                    initial={{ opacity: 0, scale: 0.88, y: 24 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-                    style={s.card}
-                >
+                <Animated.View style={[s.card, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
                     {/* Brand mark */}
                     <View style={s.brand}>
                         <Text style={s.brandIcon}>🌐</Text>
@@ -61,6 +68,7 @@ export default function LoginModal({ visible, onClose }: LoginModalProps) {
                         value={username}
                         onChangeText={setUsername}
                         autoCapitalize="none"
+                        autoCorrect={false}
                     />
                     <TextInput
                         style={s.input}
@@ -71,11 +79,9 @@ export default function LoginModal({ visible, onClose }: LoginModalProps) {
                         secureTextEntry
                     />
 
-                    <Mv whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} style={{ width: '100%', marginTop: 4 }}>
-                        <TouchableOpacity style={s.submitBtn} onPress={handleSubmit} disabled={loading}>
-                            {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.submitBtnText}>{isLogin ? 'Giriş Yap' : 'Kayıt Ol'}</Text>}
-                        </TouchableOpacity>
-                    </Mv>
+                    <TouchableOpacity style={s.submitBtn} onPress={handleSubmit} disabled={loading} activeOpacity={0.8}>
+                        {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.submitBtnText}>{isLogin ? 'Giriş Yap' : 'Kayıt Ol'}</Text>}
+                    </TouchableOpacity>
 
                     <TouchableOpacity style={s.switchBtn} onPress={() => setIsLogin(prev => !prev)}>
                         <Text style={s.switchBtnText}>
@@ -87,7 +93,7 @@ export default function LoginModal({ visible, onClose }: LoginModalProps) {
                     <TouchableOpacity style={s.closeBtn} onPress={handleClose}>
                         <Text style={s.closeBtnText}>Vazgeç</Text>
                     </TouchableOpacity>
-                </Mv>
+                </Animated.View>
             </View>
         </Modal>
     );
@@ -101,9 +107,8 @@ const s = StyleSheet.create({
         borderRadius: radius.xl,
         padding: spacing.xl,
         alignItems: 'center',
-        border: `1px solid ${colors.border}`,
-        boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
-    } as any,
+        borderWidth: 1, borderColor: colors.border,
+    },
     brand: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: spacing.lg } as any,
     brandIcon: { fontSize: 24 },
     brandName: { fontSize: 18, fontWeight: '800', color: colors.textPrimary } as any,
@@ -117,17 +122,16 @@ const s = StyleSheet.create({
         borderRadius: radius.md,
         marginBottom: 12,
         fontSize: 15,
-        border: `1px solid ${colors.border}`,
-        fontFamily: 'inherit',
-    } as any,
+        borderWidth: 1, borderColor: colors.border,
+    },
     submitBtn: {
         width: '100%',
         backgroundColor: colors.primary,
         padding: 14,
         borderRadius: radius.md,
         alignItems: 'center',
-        boxShadow: `0 4px 16px ${colors.primary}50`,
-    } as any,
+        marginTop: 4,
+    },
     submitBtnText: { color: colors.bg, fontWeight: '700', fontSize: 16 } as any,
     switchBtn: { marginTop: 20 },
     switchBtnText: { color: colors.textMuted, fontSize: 14 } as any,

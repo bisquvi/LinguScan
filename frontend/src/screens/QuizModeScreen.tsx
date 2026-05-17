@@ -1,21 +1,31 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Dimensions, Platform, Animated } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { apiClient } from '../api/client';
 import { colors, radius, spacing, typography } from '../theme';
-import { motion } from 'framer-motion';
+import { Brain, Target, Library, BarChart2 } from 'lucide-react-native';
+let motion: any = null;
+let Mv: any = Animated.View;
+if (Platform.OS === 'web') {
+    motion = require('framer-motion').motion;
+    Mv = motion.div;
+}
+
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const IS_MOBILE = SCREEN_W < 768;
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'QuizMode'>;
 type RoutePropType = RouteProp<RootStackParamList, 'QuizMode'>;
 
-const Mv = motion.div as any;
+
 
 const QUIZ_MODES = [
     {
         type: 'recall' as const,
-        emoji: '🧠',
+        Icon: Brain,
         title: 'Recall Quiz',
         desc: 'Türkçe anlamı görürsün, İngilizce karşılığını hatırlamaya çalışırsın. Cevabı kendin açar ve değerlendirirsin.',
         color: colors.secondary,
@@ -23,7 +33,7 @@ const QUIZ_MODES = [
     },
     {
         type: 'multiple_choice' as const,
-        emoji: '🎯',
+        Icon: Target,
         title: 'Çoktan Seçmeli',
         desc: 'İngilizce kelimeyi görürsün, 4 Türkçe seçenek arasından doğrusunu seçersin.',
         color: colors.primary,
@@ -74,8 +84,9 @@ export default function QuizModeScreen() {
                     marginTop: spacing.sm,
                 }}
             >
-                <View style={s.deckBadge}>
-                    <Text style={s.deckBadgeText}>📚 {deckName}</Text>
+                <View style={[s.deckBadge, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+                    <Library size={16} color={colors.primary} />
+                    <Text style={s.deckBadgeText}>{deckName}</Text>
                 </View>
                 <Text style={s.title}>Quiz Modu Seç</Text>
                 <Text style={s.subtitle}>Sana en uygun öğrenme modunu seç</Text>
@@ -111,7 +122,7 @@ export default function QuizModeScreen() {
                         >
                             {/* Icon */}
                             <div style={{
-                                width: 72, height: 72,
+                                width: IS_MOBILE ? 56 : 72, height: IS_MOBILE ? 56 : 72,
                                 borderRadius: radius.lg,
                                 backgroundColor: mode.color + '18',
                                 display: 'flex',
@@ -119,7 +130,7 @@ export default function QuizModeScreen() {
                                 justifyContent: 'center',
                                 flexShrink: 0,
                             }}>
-                                <span style={{ fontSize: 36 }}>{mode.emoji}</span>
+                                <mode.Icon size={IS_MOBILE ? 28 : 36} color={mode.color} />
                             </div>
 
                             {/* Info */}
@@ -192,10 +203,11 @@ export default function QuizModeScreen() {
                 style={{ display: 'flex', justifyContent: 'center' }}
             >
                 <TouchableOpacity
-                    style={s.dashBtn}
+                    style={[s.dashBtn, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}
                     onPress={() => navigation.navigate('Dashboard')}
                 >
-                    <Text style={s.dashBtnText}>📊 İlerleme Paneli</Text>
+                    <BarChart2 size={18} color={colors.textSecondary} />
+                    <Text style={s.dashBtnText}>İlerleme Paneli</Text>
                 </TouchableOpacity>
             </Mv>
         </ScrollView>

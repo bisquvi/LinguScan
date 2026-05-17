@@ -1,20 +1,31 @@
 import React, { useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    ActivityIndicator, Alert,
+    ActivityIndicator, Alert, Dimensions, ScrollView, Platform, Animated
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { apiClient } from '../api/client';
 import { colors, radius, spacing, typography } from '../theme';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
+
+let motion: any = null;
+let Mv: any = Animated.View;
+if (Platform.OS === 'web') {
+    motion = require('framer-motion').motion;
+    Mv = motion.div;
+}
+
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const IS_MOBILE = SCREEN_W < 768;
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'Quiz'>;
 type RoutePropType = RouteProp<RootStackParamList, 'Quiz'>;
 
-const MotionView = motion.div as any;
-const MotionButton = motion.button as any;
+const MotionView = Mv as any;
+const MotionButton = (Platform.OS==='web' ? motion.button : Animated.View) as any;
 
 const RATINGS = [
     { label: 'Tekrar', value: 'again', color: colors.danger },
@@ -91,12 +102,12 @@ export default function QuizScreen() {
         await submitReview(rating, isCorrect);
     };
 
-    if (!currentCard) return <ActivityIndicator size="large" style={{ marginTop: 50, color: colors.primary }} />;
+    if (!currentCard) return <ActivityIndicator size="large" style={{ marginTop: 50 }} color={colors.primary} />;
 
     // ── Recall mode ──────────────────────────────────────────────────────────
     if (quizType === 'recall') {
         return (
-            <View style={s.container}>
+            <ScrollView contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
                 {/* Progress */}
                 <MotionView style={s.progressHeader}>
                     <View style={s.progressTrack}>
@@ -165,14 +176,15 @@ export default function QuizScreen() {
                                     whileTap={{ scale: 0.95 }}
                                     style={{
                                         display: 'flex',
-                                        flex: 1,
-                                        padding: '14px 0',
+                                        flex: IS_MOBILE ? undefined : 1,
+                                        width: IS_MOBILE ? '48%' : undefined,
+                                        padding: IS_MOBILE ? '10px 0' : '14px 0',
                                         borderRadius: radius.md,
                                         border: `1.5px solid ${r.color}60`,
                                         backgroundColor: r.color + '20',
                                         color: r.color,
                                         fontWeight: '700',
-                                        fontSize: 13,
+                                        fontSize: IS_MOBILE ? 12 : 13,
                                         cursor: 'pointer',
                                         fontFamily: 'inherit',
                                         justifyContent: 'center',
@@ -188,13 +200,13 @@ export default function QuizScreen() {
                     </MotionView>
                 )}
                 {loading && <ActivityIndicator style={{ marginTop: 12 }} color={colors.primary} />}
-            </View>
+            </ScrollView>
         );
     }
 
     // ── Multiple choice mode ─────────────────────────────────────────────────
     return (
-        <View style={s.container}>
+        <ScrollView contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
             {/* Progress */}
             <MotionView style={s.progressHeader}>
                 <View style={s.progressTrack}>
@@ -251,10 +263,11 @@ export default function QuizScreen() {
                             whileTap={!answered ? { scale: 0.98 } : {}}
                             style={{
                                 borderRadius: radius.md,
-                                padding: 16,
+                                padding: IS_MOBILE ? 14 : 16,
                                 border: `1.5px solid ${borderC}`,
                                 backgroundColor: bg,
                                 cursor: answered ? 'default' : 'pointer',
+                                marginBottom: 2,
                             }}
                             onClick={() => !answered && handleOptionSelect(index)}
                         >
@@ -264,7 +277,7 @@ export default function QuizScreen() {
                                         {String.fromCharCode(65 + index)}
                                     </Text>
                                 </View>
-                                <Text style={[s.optionText, { color: textC }]}>{option}</Text>
+                                <Text style={[s.optionText, { color: textC, fontSize: IS_MOBILE ? 14 : 15 }]}>{option}</Text>
                             </View>
                         </MotionView>
                     );
@@ -292,22 +305,22 @@ export default function QuizScreen() {
             </AnimatePresence>
 
             {loading && <ActivityIndicator style={{ marginTop: 12 }} color={colors.primary} />}
-        </View>
+        </ScrollView>
     );
 }
 
 const s = StyleSheet.create({
     container: {
-        flex: 1,
-        padding: spacing.lg,
+        flexGrow: 1,
+        padding: IS_MOBILE ? spacing.md : spacing.lg,
         backgroundColor: colors.bg,
-        alignItems: 'stretch',
+        paddingBottom: 32,
     } as any,
     progressHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
-        marginBottom: spacing.lg,
+        marginBottom: IS_MOBILE ? spacing.md : spacing.lg,
     } as any,
     progressTrack: {
         flex: 1,
@@ -336,20 +349,20 @@ const s = StyleSheet.create({
     flashcard: {
         backgroundColor: colors.surface,
         borderRadius: radius.xl,
-        padding: spacing.xl,
+        padding: IS_MOBILE ? spacing.lg : spacing.xl,
         alignItems: 'center',
-        marginBottom: spacing.lg,
+        marginBottom: IS_MOBILE ? spacing.md : spacing.lg,
         border: `1.5px solid ${colors.border}`,
         boxShadow: '0 4px 32px rgba(0,0,0,0.4)',
-        minHeight: 180,
+        minHeight: IS_MOBILE ? 140 : 180,
         justifyContent: 'center',
     } as any,
     frontText: {
-        fontSize: 28,
+        fontSize: IS_MOBILE ? 22 : 28,
         fontWeight: '800',
         color: colors.textPrimary,
         textAlign: 'center',
-        lineHeight: 38,
+        lineHeight: IS_MOBILE ? 30 : 38,
     } as any,
     answerBox: { width: '100%', alignItems: 'center', marginTop: 16 } as any,
     divider: {
@@ -386,7 +399,8 @@ const s = StyleSheet.create({
     ratingButtons: {
         flexDirection: 'row',
         width: '100%',
-        gap: 8,
+        gap: IS_MOBILE ? 6 : 8,
+        flexWrap: IS_MOBILE ? 'wrap' as const : 'nowrap' as const,
     } as any,
     rateBtn: {
         flex: 1,

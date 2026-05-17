@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Image, TouchableOpacity, Text, StyleSheet, LayoutChangeEvent, Platform, PanResponder } from 'react-native';
 import { OCRBox, OCRResult, ViewMode, WordResult } from '../types/ocr';
+import { Type, AlignLeft, FileText } from 'lucide-react-native';
 
 interface Props {
     imageUri: string;
@@ -215,7 +216,7 @@ export default function ImageOCRViewer({
                     onPress={() => onViewModeChange('words')}
                     activeOpacity={0.7}
                 >
-                    <Text style={styles.filterIcon}>🔤</Text>
+                    <Type size={22} color={viewMode === 'words' ? '#fff' : '#888'} style={{ marginBottom: 4 }} />
                     <Text style={[
                         styles.filterLabel,
                         viewMode === 'words' && styles.filterLabelActive,
@@ -230,7 +231,7 @@ export default function ImageOCRViewer({
                     onPress={() => onViewModeChange('sentences')}
                     activeOpacity={0.7}
                 >
-                    <Text style={styles.filterIcon}>📝</Text>
+                    <AlignLeft size={22} color={viewMode === 'sentences' ? '#fff' : '#888'} style={{ marginBottom: 4 }} />
                     <Text style={[
                         styles.filterLabel,
                         viewMode === 'sentences' && styles.filterLabelActive,
@@ -245,7 +246,7 @@ export default function ImageOCRViewer({
                     onPress={() => onViewModeChange('fulltext')}
                     activeOpacity={0.7}
                 >
-                    <Text style={styles.filterIcon}>📄</Text>
+                    <FileText size={22} color={viewMode === 'fulltext' ? '#fff' : '#888'} style={{ marginBottom: 4 }} />
                     <Text style={[
                         styles.filterLabel,
                         viewMode === 'fulltext' && styles.filterLabelActive,

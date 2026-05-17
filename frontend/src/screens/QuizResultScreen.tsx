@@ -1,15 +1,25 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Platform, Animated } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { colors, radius, spacing, typography } from '../theme';
-import { motion } from 'framer-motion';
+import { Trophy, ThumbsUp, Zap, Library, CheckCircle, XCircle, AlertCircle } from 'lucide-react-native';
+let motion: any = null;
+let Mv: any = Animated.View;
+if (Platform.OS === 'web') {
+    motion = require('framer-motion').motion;
+    Mv = motion.div;
+}
+
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const IS_MOBILE = SCREEN_W < 768;
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'QuizResult'>;
 type RoutePropType = RouteProp<RootStackParamList, 'QuizResult'>;
 
-const MotionView = motion.div as any;
+const MotionView = Mv as any;
 
 export default function QuizResultScreen() {
     const navigation = useNavigation<NavProp>();
@@ -20,7 +30,7 @@ export default function QuizResultScreen() {
     const isExcellent = accuracy >= 80;
     const isGood = accuracy >= 50;
     const rateColor = isExcellent ? colors.success : isGood ? colors.warning : colors.danger;
-    const emoji = isExcellent ? '🏆' : isGood ? '👍' : '💪';
+    const EmojiIcon = isExcellent ? Trophy : isGood ? ThumbsUp : Zap;
     const message = isExcellent ? 'Mükemmel! Harika iş çıkardın!' : isGood ? 'İyi gidiyor, devam et!' : 'Pes etme, pratik seni geliştirir!';
 
     return (
@@ -37,7 +47,7 @@ export default function QuizResultScreen() {
                     transition={{ duration: 0.7, delay: 0.3 }}
                     style={s.emojiWrapper}
                 >
-                    <Text style={s.heroEmoji}>{emoji}</Text>
+                    <EmojiIcon size={56} color={colors.textPrimary} />
                 </MotionView>
                 <Text style={s.heroTitle}>Quiz Tamamlandı!</Text>
                 <Text style={s.heroMessage}>{message}</Text>
@@ -91,9 +101,9 @@ export default function QuizResultScreen() {
                 style={s.statsRow}
             >
                 {[
-                    { label: 'Toplam', value: result.total_cards, color: colors.textSecondary, emoji: '📚' },
-                    { label: 'Doğru', value: result.correct_answers, color: colors.success, emoji: '✅' },
-                    { label: 'Yanlış', value: result.wrong_answers, color: colors.danger, emoji: '❌' },
+                    { label: 'Toplam', value: result.total_cards, color: colors.textSecondary, Icon: Library },
+                    { label: 'Doğru', value: result.correct_answers, color: colors.success, Icon: CheckCircle },
+                    { label: 'Yanlış', value: result.wrong_answers, color: colors.danger, Icon: XCircle },
                 ].map((s2, i) => (
                     <MotionView
                         key={s2.label}
@@ -110,7 +120,7 @@ export default function QuizResultScreen() {
                             border: `1.5px solid ${s2.color}25`,
                         }}
                     >
-                        <Text style={{ fontSize: 20, marginBottom: 4 }}>{s2.emoji}</Text>
+                        <s2.Icon size={24} color={s2.color} style={{ marginBottom: 4 }} />
                         <Text style={[statCard.value, { color: s2.color }]}>{s2.value}</Text>
                         <Text style={statCard.label}>{s2.label}</Text>
                     </MotionView>
@@ -125,7 +135,10 @@ export default function QuizResultScreen() {
                     transition={{ delay: 0.5 }}
                     style={s.section}
                 >
-                    <Text style={s.sectionTitle}>🔴 En Zor Kartlar</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                        <AlertCircle size={20} color={colors.danger} />
+                        <Text style={[s.sectionTitle, { marginBottom: 0 }]}>En Zor Kartlar</Text>
+                    </View>
                     {result.hardest_cards.map((c: any, i: number) => (
                         <MotionView
                             key={c.id}
@@ -159,7 +172,10 @@ export default function QuizResultScreen() {
                     transition={{ delay: 0.6 }}
                     style={s.section}
                 >
-                    <Text style={s.sectionTitle}>🟢 En Kolay Kartlar</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                        <CheckCircle size={20} color={colors.success} />
+                        <Text style={[s.sectionTitle, { marginBottom: 0 }]}>En Kolay Kartlar</Text>
+                    </View>
                     {result.easiest_cards.map((c: any, i: number) => (
                         <MotionView
                             key={c.id}
@@ -194,8 +210,9 @@ export default function QuizResultScreen() {
                 whileTap={{ scale: 0.97 }}
                 style={{ marginTop: spacing.lg }}
             >
-                <TouchableOpacity style={s.btn} onPress={() => navigation.navigate('Decks')}>
-                    <Text style={s.btnText}>📚 Destelerime Dön</Text>
+                <TouchableOpacity style={[s.btn, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }]} onPress={() => navigation.navigate('Decks')}>
+                    <Library size={20} color={colors.bg} />
+                    <Text style={s.btnText}>Destelerime Dön</Text>
                 </TouchableOpacity>
             </MotionView>
         </ScrollView>
@@ -246,7 +263,7 @@ const s = StyleSheet.create({
     } as any,
     accuracyLabel: { ...typography.label, marginBottom: 8 },
     accuracyValue: {
-        fontSize: 64,
+        fontSize: IS_MOBILE ? 48 : 64,
         fontWeight: '800',
         marginBottom: 16,
     } as any,

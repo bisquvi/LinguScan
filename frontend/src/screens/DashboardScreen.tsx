@@ -1,10 +1,21 @@
 import React, { useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity, Dimensions } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { apiClient } from '../api/client';
 import { colors, radius, spacing, typography } from '../theme';
+import { BarChart2, Sparkles, Flame, RefreshCw, Star, AlertCircle, CheckCircle, Leaf } from 'lucide-react-native';
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { Platform, Animated } from 'react-native';
+
+let motion: any = null;
+let Mv: any = Animated.View;
+if (Platform.OS === 'web') {
+    motion = require('framer-motion').motion;
+    Mv = motion.div;
+}
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const IS_MOBILE = SCREEN_W < 768;
 
 interface DashboardData {
     total_cards: number;
@@ -18,7 +29,7 @@ interface DashboardData {
     best_known_cards: { id: number; front: string; back: string }[];
 }
 
-const MotionView = motion.div as any;
+const MotionView = Mv as any;
 
 export default function DashboardScreen() {
     const [data, setData] = useState<DashboardData | null>(null);
@@ -69,7 +80,7 @@ export default function DashboardScreen() {
                 transition={{ duration: 0.4 }}
                 style={s.header}
             >
-                <Text style={s.headerEmoji}>📊</Text>
+                <BarChart2 size={36} color={colors.primary} />
                 <View>
                     <Text style={s.headerTitle}>İlerleme Paneli</Text>
                     <Text style={s.headerSub}>Öğrenme yolculuğuna bak</Text>
@@ -117,10 +128,10 @@ export default function DashboardScreen() {
             <Text style={s.sectionTitle}>Kart Durumları</Text>
             <View style={s.statusGrid}>
                 {[
-                    { label: 'Yeni', value: data.new_cards, color: colors.textMuted, emoji: '🆕' },
-                    { label: 'Öğreniliyor', value: data.learning_cards, color: colors.warning, emoji: '🔥' },
-                    { label: 'Tekrar', value: data.review_cards, color: colors.secondary, emoji: '🔄' },
-                    { label: 'Ustası', value: data.mastered_cards, color: colors.success, emoji: '⭐' },
+                    { label: 'Yeni', value: data.new_cards, color: colors.textMuted, Icon: Sparkles },
+                    { label: 'Öğreniliyor', value: data.learning_cards, color: colors.warning, Icon: Flame },
+                    { label: 'Tekrar', value: data.review_cards, color: colors.secondary, Icon: RefreshCw },
+                    { label: 'Ustası', value: data.mastered_cards, color: colors.success, Icon: Star },
                 ].map((item, i) => (
                     <MotionView
                         key={item.label}
@@ -138,7 +149,7 @@ export default function DashboardScreen() {
                             cursor: 'default',
                         }}
                     >
-                        <Text style={{ fontSize: 22, marginBottom: 6 }}>{item.emoji}</Text>
+                        <item.Icon size={24} color={item.color} style={{ marginBottom: 6 }} />
                         <Text style={[s.statusValue, { color: item.color }]}>{item.value}</Text>
                         <Text style={s.statusLabel}>{item.label}</Text>
                     </MotionView>
@@ -152,7 +163,10 @@ export default function DashboardScreen() {
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.4, delay: 0.4 }}
                 >
-                    <Text style={s.sectionTitle}>🔴 En Zor Kelimeler</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                        <AlertCircle size={20} color={colors.danger} />
+                        <Text style={[s.sectionTitle, { marginBottom: 0, marginTop: 0 }]}>En Zor Kelimeler</Text>
+                    </View>
                     {data.most_difficult_cards.map((c, i) => (
                         <MotionView
                             key={c.id}
@@ -184,7 +198,10 @@ export default function DashboardScreen() {
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.4, delay: 0.5 }}
                 >
-                    <Text style={s.sectionTitle}>🟢 En İyi Bilinen Kelimeler</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                        <CheckCircle size={20} color={colors.success} />
+                        <Text style={[s.sectionTitle, { marginBottom: 0, marginTop: 0 }]}>En İyi Bilinen Kelimeler</Text>
+                    </View>
                     {data.best_known_cards.map((c, i) => (
                         <MotionView
                             key={c.id}
@@ -211,7 +228,7 @@ export default function DashboardScreen() {
 
             {data.total_cards === 0 && (
                 <View style={s.emptyBox}>
-                    <Text style={{ fontSize: 48, marginBottom: 12 }}>🌱</Text>
+                    <Leaf size={48} color={colors.textMuted} style={{ marginBottom: 12 }} />
                     <Text style={s.emptyTitle}>Henüz kart yok</Text>
                     <Text style={s.emptyText}>Quiz yaptıkça istatistikler burada görünür.</Text>
                 </View>
@@ -261,7 +278,7 @@ const s = StyleSheet.create({
         marginBottom: 8,
     },
     heroValue: {
-        fontSize: 52,
+        fontSize: IS_MOBILE ? 40 : 52,
         fontWeight: '800',
         marginBottom: 16,
     } as any,
@@ -300,6 +317,7 @@ const s = StyleSheet.create({
     },
     statusGrid: {
         flexDirection: 'row',
+        flexWrap: IS_MOBILE ? 'wrap' as const : 'nowrap' as const,
         gap: 10,
         marginBottom: spacing.md,
     } as any,

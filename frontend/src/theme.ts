@@ -2,11 +2,11 @@
 // Palette: #28396C (navy bg) · #B5E18B (sage green) · #F0FFC2 (lime) · #EAE6BC (cream)
 
 export const colors = {
-  // Background layers (navy family — 20% darker than original)
-  bg: '#202E56',
-  surface: '#263560',
-  surfaceHigh: '#2C3F70',
-  surfaceActive: '#32487B',
+  // Background layers (very dark navy, close to black)
+  bg: '#080C16',
+  surface: '#0B1120',
+  surfaceHigh: '#0F172A',
+  surfaceActive: '#141E36',
 
   // Primary accent — sage green
   primary: '#B5E18B',

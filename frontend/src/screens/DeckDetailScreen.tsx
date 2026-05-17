@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Animated, Pressable } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Animated, Pressable, Platform } from 'react-native';
 import { apiClient } from '../api/client';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,12 +7,19 @@ import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
 import { confirmAction, showAlert } from '../utils/alert';
 import { colors, radius, spacing, typography } from '../theme';
-import { motion } from 'framer-motion';
+import { Play, Inbox, X } from 'lucide-react-native';
+let motion: any = null;
+let Mv: any = Animated.View;
+if (Platform.OS === 'web') {
+    motion = require('framer-motion').motion;
+    Mv = motion.div;
+}
+
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'DeckDetail'>;
 type RoutePropType = RouteProp<RootStackParamList, 'DeckDetail'>;
 interface Card { id: number; front: string; back: string; context?: string; }
-const Mv = motion.div as any;
+
 
 const AnimatedCard = ({ item, onDelete }: { item: Card; onDelete: (card: Card) => void }) => {
     const anim = React.useRef(new Animated.Value(0)).current;
@@ -24,11 +31,11 @@ const AnimatedCard = ({ item, onDelete }: { item: Card; onDelete: (card: Card) =
             whileHover={{ y: -2, boxShadow: '0 6px 24px rgba(0,0,0,0.4)' }}
             transition={{ duration: 0.25 }}
             style={cs.card}>
-            <Animated.View style={[StyleSheet.absoluteFill, {
-                backgroundColor: 'rgba(255,90,95,0.12)',
-                width: anim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
-                right: 0, left: 'auto' as any,
-            }]} />
+        <Animated.View style={[StyleSheet.absoluteFill, {
+            backgroundColor: 'rgba(255,90,95,0.12)',
+            width: anim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
+            right: 0, left: 'auto' as any,
+        }]} />
             <View style={cs.cardContent}>
                 <Text style={cs.front}>{item.front}</Text>
                 <Text style={cs.back}>{item.back}</Text>
@@ -37,7 +44,7 @@ const AnimatedCard = ({ item, onDelete }: { item: Card; onDelete: (card: Card) =
             <Pressable style={cs.del} onPress={() => onDelete(item)}
                 // @ts-ignore
                 onHoverIn={handleHoverIn} onHoverOut={handleHoverOut}>
-                <Text style={cs.delTxt}>✕</Text>
+                <X size={20} color={colors.danger} />
             </Pressable>
         </Mv>
     );
@@ -74,7 +81,7 @@ export default function DeckDetailScreen() {
                     </View>
                     <Mv whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                         <TouchableOpacity style={s.quizBtn} onPress={() => navigation.navigate('QuizMode', { deckId, deckName })}>
-                            <Text style={s.quizBtnTxt}>▶ Quiz'e Başla</Text>
+                            <Text style={s.quizBtnTxt}>▸ Quiz'e Başla</Text>
                         </TouchableOpacity>
                     </Mv>
                 </View>
@@ -86,7 +93,7 @@ export default function DeckDetailScreen() {
                 </View>
             ) : cards.length === 0 ? (
                 <View style={s.empty}>
-                    <Text style={{ fontSize: 56, marginBottom: 16 }}>📭</Text>
+                    <Text style={{ fontSize: 56, marginBottom: 16 }}>⚀</Text>
                     <Text style={s.emptyTitle}>Bu destede kelime yok</Text>
                     <Text style={s.emptySub}>Görsel ekranından kelime ekleyebilirsin.</Text>
                 </View>

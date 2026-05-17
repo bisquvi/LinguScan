@@ -1,17 +1,35 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, TextInput, Platform } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, TextInput, Platform, Dimensions, Animated, Pressable } from 'react-native';
 import { apiClient } from '../api/client';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { confirmAction, showAlert } from '../utils/alert';
 import { colors, radius, spacing, typography } from '../theme';
-import { motion } from 'framer-motion';
+import { Library, CheckCircle, FileSpreadsheet, Plus, X } from 'lucide-react-native';
+let motion: any = null;
+let Mv: any = Animated.View;
+if (Platform.OS === 'web') {
+    motion = require('framer-motion').motion;
+    Mv = motion.div;
+}
+
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const IS_MOBILE = SCREEN_W < 768;
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Decks'>;
 interface Deck { id: number; name: string; cards: any[]; }
 const COVER_COLORS = colors.covers;
-const Mv = motion.div as any;
+
+const ModalBox = ({ children }: { children: React.ReactNode }) => (
+    <View style={s.overlay}>
+        <Mv initial={{ opacity: 0, scale: 0.92, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 26 }} style={s.modal}>
+            {children}
+        </Mv>
+    </View>
+);
 
 export default function DecksScreen() {
     const [decks, setDecks] = useState<Deck[]>([]);
@@ -87,14 +105,23 @@ export default function DecksScreen() {
         catch (err: any) { showAlert('Hata', `Silinemedi: ${err?.message ?? '?'}`); }
     }, 'Sil');
 
-    const renderItem = ({ item, index }: { item: Deck; index: number }) => {
+    const AnimatedDeckCard = ({ item, index, onDelete, onPress }: { item: Deck, index: number, onDelete: (deck: Deck) => void, onPress: () => void }) => {
+        const anim = React.useRef(new Animated.Value(0)).current;
+        const handleHoverIn = () => Animated.timing(anim, { toValue: 1, duration: 250, useNativeDriver: false }).start();
+        const handleHoverOut = () => Animated.timing(anim, { toValue: 0, duration: 250, useNativeDriver: false }).start();
         const color = COVER_COLORS[index % COVER_COLORS.length];
+
         return (
             <Mv initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.28, delay: index * 0.05 }}
                 whileHover={{ y: -2, boxShadow: '0 8px 32px rgba(0,0,0,0.45)' }}
                 style={s.card}>
-                <TouchableOpacity style={s.cardInner} onPress={() => navigation.navigate('DeckDetail', { deckId: item.id, deckName: item.name })} activeOpacity={0.8}>
+                <Animated.View style={[StyleSheet.absoluteFill, {
+                    backgroundColor: 'rgba(255,90,95,0.12)',
+                    width: anim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
+                    right: 0, left: 'auto' as any,
+                }]} />
+                <TouchableOpacity style={s.cardInner} onPress={onPress} activeOpacity={0.8}>
                     <View style={[s.cover, { backgroundColor: color }]}>
                         <Text style={s.initial}>{item.name.charAt(0).toUpperCase()}</Text>
                     </View>
@@ -103,21 +130,20 @@ export default function DecksScreen() {
                         <Text style={s.cardCount}>{item.cards?.length || 0} kelime</Text>
                     </View>
                 </TouchableOpacity>
-                <TouchableOpacity style={s.delBtn} onPress={() => deleteDeck(item)}>
-                    <Text style={s.delBtnTxt}>✕</Text>
-                </TouchableOpacity>
+                <Pressable style={s.delBtn} onPress={() => onDelete(item)}
+                    // @ts-ignore
+                    onHoverIn={handleHoverIn} onHoverOut={handleHoverOut}>
+                    <X size={20} color={colors.danger} />
+                </Pressable>
             </Mv>
         );
     };
 
-    const ModalBox = ({ children }: { children: React.ReactNode }) => (
-        <View style={s.overlay}>
-            <Mv initial={{ opacity: 0, scale: 0.92, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ type: 'spring', stiffness: 320, damping: 26 }} style={s.modal}>
-                {children}
-            </Mv>
-        </View>
-    );
+    const renderItem = ({ item, index }: { item: Deck; index: number }) => {
+        return <AnimatedDeckCard item={item} index={index} onDelete={deleteDeck} onPress={() => navigation.navigate('DeckDetail', { deckId: item.id, deckName: item.name })} />;
+    };
+
+
 
     return (
         <View style={s.container}>
@@ -134,8 +160,9 @@ export default function DecksScreen() {
                     <Text style={s.headerSub}>{decks.length} deste</Text>
                 </View>
                 <Mv whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
-                    <TouchableOpacity style={s.newBtn} onPress={() => setCreateVisible(true)}>
-                        <Text style={s.newBtnTxt}>+ Yeni Deste</Text>
+                    <TouchableOpacity style={[s.newBtn, { flexDirection: 'row', alignItems: 'center', gap: 6 }]} onPress={() => setCreateVisible(true)}>
+                        <Plus size={16} color={colors.bg} />
+                        <Text style={s.newBtnTxt}>Yeni Deste</Text>
                     </TouchableOpacity>
                 </Mv>
             </View>
@@ -146,12 +173,13 @@ export default function DecksScreen() {
                 </View>
             ) : decks.length === 0 ? (
                 <View style={s.empty}>
-                    <Text style={{ fontSize: 64, marginBottom: 16 }}>📚</Text>
+                    <Library size={64} color={colors.textMuted} style={{ marginBottom: 16 }} />
                     <Text style={s.emptyTitle}>Henüz deste yok</Text>
                     <Text style={s.emptyText}>İlk desteni oluştur ve öğrenmeye başla!</Text>
                     <Mv whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} style={{ marginTop: 24 }}>
-                        <TouchableOpacity style={s.emptyBtn} onPress={() => setCreateVisible(true)}>
-                            <Text style={s.emptyBtnTxt}>+ İlk Destemi Oluştur</Text>
+                        <TouchableOpacity style={[s.emptyBtn, { flexDirection: 'row', alignItems: 'center', gap: 8 }]} onPress={() => setCreateVisible(true)}>
+                            <Plus size={18} color={colors.bg} />
+                            <Text style={s.emptyBtnTxt}>İlk Destemi Oluştur</Text>
                         </TouchableOpacity>
                     </Mv>
                 </View>
@@ -165,7 +193,7 @@ export default function DecksScreen() {
                 <ModalBox>
                     {importResult ? (
                         <View style={{ alignItems: 'center', paddingVertical: 8 }}>
-                            <Text style={{ fontSize: 48, marginBottom: 12 }}>✅</Text>
+                            <CheckCircle size={48} color={colors.success} style={{ marginBottom: 12 }} />
                             <Text style={s.modalTitle}>İçe Aktarma Tamam!</Text>
                             <Text style={{ color: colors.success, fontSize: 15, marginBottom: 24 }}>{importResult.imported} kelime eklendi</Text>
                             <TouchableOpacity style={s.confirmBtn} onPress={closeCreate}><Text style={s.confirmTxt}>Tamam</Text></TouchableOpacity>
@@ -182,18 +210,23 @@ export default function DecksScreen() {
                             <View style={s.excelSec}>
                                 <View style={s.divRow}><View style={s.divLine} /><Text style={s.divTxt}>Excel ile toplu ekle</Text><View style={s.divLine} /></View>
                                 <TouchableOpacity style={[s.excelBtn, excelFile && s.excelBtnOn]} onPress={() => excelInputRef.current?.click()} activeOpacity={0.7}>
-                                    <Text style={{ fontSize: 22, marginRight: 10 }}>📊</Text>
+                                    <FileSpreadsheet size={24} color={excelFile ? colors.primary : colors.textPrimary} style={{ marginRight: 12 }} />
                                     <View style={{ flex: 1 }}>
                                         <Text style={s.excelBtnTxt}>{excelFile ? excelFile.name : 'Excel Dosyası Seç (.xlsx)'}</Text>
                                         <Text style={s.excelHint}>{excelFile ? 'Değiştirmek için tıkla' : 'Kelime | Anlam | Açıklama'}</Text>
                                     </View>
-                                    {excelFile && <TouchableOpacity style={s.excelRm} onPress={() => setExcelFile(null)}><Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>✕</Text></TouchableOpacity>}
+                                    {excelFile && <TouchableOpacity style={s.excelRm} onPress={() => setExcelFile(null)}><X size={14} color="#fff" strokeWidth={3} /></TouchableOpacity>}
                                 </TouchableOpacity>
                             </View>
                             <View style={s.btnRow}>
                                 <TouchableOpacity style={s.cancelBtn} onPress={closeCreate}><Text style={s.cancelTxt}>İptal</Text></TouchableOpacity>
-                                <TouchableOpacity style={[s.confirmBtn, !newDeckName.trim() && s.disabled]} onPress={createDeck} disabled={!newDeckName.trim() || creating}>
-                                    {creating ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.confirmTxt}>{excelFile ? '📊 Oluştur & Aktar' : 'Oluştur'}</Text>}
+                                <TouchableOpacity style={[s.confirmBtn, !newDeckName.trim() && s.disabled, excelFile && { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }]} onPress={createDeck} disabled={!newDeckName.trim() || creating}>
+                                    {creating ? <ActivityIndicator color="#fff" size="small" /> : (
+                                        <>
+                                            {excelFile && <FileSpreadsheet size={16} color="#fff" />}
+                                            <Text style={s.confirmTxt}>{excelFile ? 'Oluştur & Aktar' : 'Oluştur'}</Text>
+                                        </>
+                                    )}
                                 </TouchableOpacity>
                             </View>
                         </>
@@ -204,7 +237,7 @@ export default function DecksScreen() {
             {/* FAB */}
             <Mv whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.93 }} style={s.fab}>
                 <TouchableOpacity onPress={() => setManualVisible(true)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: colors.bg, fontSize: 28, fontWeight: '700' }}>+</Text>
+                    <Plus size={32} color={colors.bg} />
                 </TouchableOpacity>
             </Mv>
 
@@ -232,7 +265,10 @@ export default function DecksScreen() {
                         decks.length === 0 ? (
                             <View style={{ alignItems: 'center', paddingVertical: 16 }}>
                                 <Text style={{ color: colors.textMuted, textAlign: 'center', marginBottom: 16 }}>Henüz desten yok.{'\n'}Önce bir deste oluştur.</Text>
-                                <TouchableOpacity style={s.confirmBtn} onPress={() => { setDeckPickerVisible(false); setCreateVisible(true); }}><Text style={s.confirmTxt}>+ Yeni Deste</Text></TouchableOpacity>
+                                <TouchableOpacity style={[s.confirmBtn, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }]} onPress={() => { setDeckPickerVisible(false); setCreateVisible(true); }}>
+                                    <Plus size={16} color={colors.bg} />
+                                    <Text style={s.confirmTxt}>Yeni Deste</Text>
+                                </TouchableOpacity>
                             </View>
                         ) : (
                             <FlatList data={decks} keyExtractor={d => d.id.toString()} style={{ maxHeight: 300 }}
@@ -255,11 +291,11 @@ const s = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     spinner: { width: 36, height: 36, borderRadius: 18, border: `3px solid ${colors.primaryDim}`, borderTopColor: colors.primary } as any,
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.lg, paddingTop: spacing.xl },
-    headerTitle: { ...typography.h1 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: IS_MOBILE ? spacing.md : spacing.lg, paddingTop: IS_MOBILE ? spacing.lg : spacing.xl },
+    headerTitle: { ...typography.h1, fontSize: IS_MOBILE ? 22 : 28 } as any,
     headerSub: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
-    newBtn: { backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 18, borderRadius: radius.full, boxShadow: `0 4px 16px ${colors.primary}40` } as any,
-    newBtnTxt: { color: colors.bg, fontWeight: '700', fontSize: 13 } as any,
+    newBtn: { backgroundColor: colors.primary, paddingVertical: IS_MOBILE ? 8 : 10, paddingHorizontal: IS_MOBILE ? 14 : 18, borderRadius: radius.full, boxShadow: `0 4px 16px ${colors.primary}40` } as any,
+    newBtnTxt: { color: colors.bg, fontWeight: '700', fontSize: IS_MOBILE ? 12 : 13 } as any,
     card: { display: 'flex', flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.lg, marginBottom: 12, overflow: 'hidden', cursor: 'pointer', border: `1px solid ${colors.border}` } as any,
     cardInner: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 14 },
     cover: { width: 52, height: 52, borderRadius: radius.md, justifyContent: 'center', alignItems: 'center', marginRight: 14 },

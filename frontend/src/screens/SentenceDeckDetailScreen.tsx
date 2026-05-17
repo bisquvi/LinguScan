@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Animated, Pressable } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Animated, Pressable, Platform } from 'react-native';
 import { apiClient } from '../api/client';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,12 +7,19 @@ import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
 import { confirmAction, showAlert } from '../utils/alert';
 import { colors, radius, spacing, typography } from '../theme';
-import { motion } from 'framer-motion';
+import { Inbox, X } from 'lucide-react-native';
+let motion: any = null;
+let Mv: any = Animated.View;
+if (Platform.OS === 'web') {
+    motion = require('framer-motion').motion;
+    Mv = motion.div;
+}
+
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'SentenceDeckDetail'>;
 type RoutePropType = RouteProp<RootStackParamList, 'SentenceDeckDetail'>;
 interface SentenceCard { id: number; front: string; back: string; }
-const Mv = motion.div as any;
+
 
 const AnimatedSentenceCard = ({ item, onDelete }: { item: SentenceCard; onDelete: (card: SentenceCard) => void }) => {
     const anim = React.useRef(new Animated.Value(0)).current;
@@ -36,7 +43,7 @@ const AnimatedSentenceCard = ({ item, onDelete }: { item: SentenceCard; onDelete
             <Pressable style={cs.del} onPress={() => onDelete(item)}
                 // @ts-ignore
                 onHoverIn={handleHoverIn} onHoverOut={handleHoverOut}>
-                <Text style={cs.delTxt}>✕</Text>
+                <X size={20} color={colors.danger} />
             </Pressable>
         </Mv>
     );
@@ -75,7 +82,7 @@ export default function SentenceDeckDetailScreen() {
                 </View>
             ) : cards.length === 0 ? (
                 <View style={s.empty}>
-                    <Text style={{ fontSize: 56, marginBottom: 16 }}>📭</Text>
+                    <Text style={{ fontSize: 56, marginBottom: 16 }}>⚀</Text>
                     <Text style={s.emptyTitle}>Bu destede cümle yok</Text>
                     <Text style={s.emptySub}>Görsel ekranından cümle ekleyebilirsin.</Text>
                 </View>

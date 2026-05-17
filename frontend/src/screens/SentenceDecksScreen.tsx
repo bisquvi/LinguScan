@@ -1,17 +1,27 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, TextInput } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, TextInput, Dimensions, Platform, Animated, Pressable } from 'react-native';
 import { apiClient } from '../api/client';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { confirmAction, showAlert } from '../utils/alert';
 import { colors, radius, spacing, typography } from '../theme';
-import { motion } from 'framer-motion';
+import { PenTool, Plus, X } from 'lucide-react-native';
+let motion: any = null;
+let Mv: any = Animated.View;
+if (Platform.OS === 'web') {
+    motion = require('framer-motion').motion;
+    Mv = motion.div;
+}
+
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const IS_MOBILE = SCREEN_W < 768;
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'SentenceDecks'>;
 interface SentenceDeck { id: number; name: string; cards: any[]; }
 const COVER_COLORS = colors.covers;
-const Mv = motion.div as any;
+
 
 export default function SentenceDecksScreen() {
     const [decks, setDecks] = useState<SentenceDeck[]>([]);
@@ -43,14 +53,23 @@ export default function SentenceDecksScreen() {
         catch (err: any) { showAlert('Hata', `Silinemedi: ${err?.message ?? '?'}`); }
     }, 'Sil');
 
-    const renderItem = ({ item, index }: { item: SentenceDeck; index: number }) => {
+    const AnimatedSentenceDeckCard = ({ item, index, onDelete, onPress }: { item: SentenceDeck, index: number, onDelete: (deck: SentenceDeck) => void, onPress: () => void }) => {
+        const anim = React.useRef(new Animated.Value(0)).current;
+        const handleHoverIn = () => Animated.timing(anim, { toValue: 1, duration: 250, useNativeDriver: false }).start();
+        const handleHoverOut = () => Animated.timing(anim, { toValue: 0, duration: 250, useNativeDriver: false }).start();
         const color = COVER_COLORS[index % COVER_COLORS.length];
+
         return (
             <Mv initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.28, delay: index * 0.05 }}
                 whileHover={{ y: -2, boxShadow: '0 8px 32px rgba(0,0,0,0.45)' }}
                 style={s.card}>
-                <TouchableOpacity style={s.cardInner} onPress={() => navigation.navigate('SentenceDeckDetail', { deckId: item.id, deckName: item.name })} activeOpacity={0.8}>
+                <Animated.View style={[StyleSheet.absoluteFill, {
+                    backgroundColor: 'rgba(255,90,95,0.12)',
+                    width: anim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
+                    right: 0, left: 'auto' as any,
+                }]} />
+                <TouchableOpacity style={s.cardInner} onPress={onPress} activeOpacity={0.8}>
                     <View style={[s.cover, { backgroundColor: color }]}>
                         <Text style={s.initial}>{item.name.charAt(0).toUpperCase()}</Text>
                     </View>
@@ -59,11 +78,17 @@ export default function SentenceDecksScreen() {
                         <Text style={s.cardCount}>{item.cards?.length || 0} cümle</Text>
                     </View>
                 </TouchableOpacity>
-                                <TouchableOpacity style={s.delBtn} onPress={() => deleteDeck(item)}>
-                    <Text style={{ fontSize: 18, color: colors.danger }}>✕</Text>
-                </TouchableOpacity>
+                <Pressable style={s.delBtn} onPress={() => onDelete(item)}
+                    // @ts-ignore
+                    onHoverIn={handleHoverIn} onHoverOut={handleHoverOut}>
+                    <X size={20} color={colors.danger} />
+                </Pressable>
             </Mv>
         );
+    };
+
+    const renderItem = ({ item, index }: { item: SentenceDeck; index: number }) => {
+        return <AnimatedSentenceDeckCard item={item} index={index} onDelete={deleteDeck} onPress={() => navigation.navigate('SentenceDeckDetail', { deckId: item.id, deckName: item.name })} />;
     };
 
     return (
@@ -74,8 +99,9 @@ export default function SentenceDecksScreen() {
                     <Text style={s.headerSub}>{decks.length} deste</Text>
                 </View>
                 <Mv whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
-                    <TouchableOpacity style={s.newBtn} onPress={() => setCreateVisible(true)}>
-                        <Text style={s.newBtnTxt}>+ Yeni Deste</Text>
+                    <TouchableOpacity style={[s.newBtn, { flexDirection: 'row', alignItems: 'center', gap: 6 }]} onPress={() => setCreateVisible(true)}>
+                        <Plus size={16} color={colors.bg} />
+                        <Text style={s.newBtnTxt}>Yeni Deste</Text>
                     </TouchableOpacity>
                 </Mv>
             </View>
@@ -86,12 +112,13 @@ export default function SentenceDecksScreen() {
                 </View>
             ) : decks.length === 0 ? (
                 <View style={s.empty}>
-                    <Text style={{ fontSize: 64, marginBottom: 16 }}>📝</Text>
+                    <PenTool size={64} color={colors.textMuted} style={{ marginBottom: 16 }} />
                     <Text style={s.emptyTitle}>Henüz cümle destesi yok</Text>
                     <Text style={s.emptyText}>İlk cümle desteni oluştur!</Text>
                     <Mv whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} style={{ marginTop: 24 }}>
-                        <TouchableOpacity style={s.emptyBtn} onPress={() => setCreateVisible(true)}>
-                            <Text style={s.emptyBtnTxt}>+ İlk Destemi Oluştur</Text>
+                        <TouchableOpacity style={[s.emptyBtn, { flexDirection: 'row', alignItems: 'center', gap: 8 }]} onPress={() => setCreateVisible(true)}>
+                            <Plus size={18} color={colors.bg} />
+                            <Text style={s.emptyBtnTxt}>İlk Destemi Oluştur</Text>
                         </TouchableOpacity>
                     </Mv>
                 </View>
@@ -126,11 +153,11 @@ const s = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     spinner: { width: 36, height: 36, borderRadius: 18, border: `3px solid ${colors.primaryDim}`, borderTopColor: colors.primary } as any,
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.lg, paddingTop: spacing.xl },
-    headerTitle: { ...typography.h1 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: IS_MOBILE ? spacing.md : spacing.lg, paddingTop: IS_MOBILE ? spacing.lg : spacing.xl },
+    headerTitle: { ...typography.h1, fontSize: IS_MOBILE ? 22 : 28 } as any,
     headerSub: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
-    newBtn: { backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 18, borderRadius: radius.full, boxShadow: `0 4px 16px ${colors.primary}40` } as any,
-    newBtnTxt: { color: colors.bg, fontWeight: '700', fontSize: 13 } as any,
+    newBtn: { backgroundColor: colors.primary, paddingVertical: IS_MOBILE ? 8 : 10, paddingHorizontal: IS_MOBILE ? 14 : 18, borderRadius: radius.full, boxShadow: `0 4px 16px ${colors.primary}40` } as any,
+    newBtnTxt: { color: colors.bg, fontWeight: '700', fontSize: IS_MOBILE ? 12 : 13 } as any,
     card: { display: 'flex', flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.lg, marginBottom: 12, overflow: 'hidden', cursor: 'pointer', border: `1px solid ${colors.border}` } as any,
     cardInner: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 14 },
     cover: { width: 52, height: 52, borderRadius: radius.md, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
